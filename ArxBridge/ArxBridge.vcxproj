@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug_2021|x64">
+      <Configuration>Debug_2021</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_2021|x64">
+      <Configuration>Release_2021</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug_2025|x64">
+      <Configuration>Debug_2025</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_2025|x64">
+      <Configuration>Release_2025</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug_2027|x64">
+      <Configuration>Debug_2027</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release_2027|x64">
+      <Configuration>Release_2027</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <EnableManagedPackageReferenceSupport>true</EnableManagedPackageReferenceSupport>
+    <ProjectGuid>{A3B2C1D0-4E5F-6A7B-8C9D-0E1F2A3B4C5D}</ProjectGuid>
+    <RootNamespace>ArxBridge</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <TargetFrameworks>net472;net8.0-windows;net10.0-windows</TargetFrameworks>
+    <ProjectName>ArxBridge</ProjectName>
+    <OarxRoot>D:\OARX_SDK\</OarxRoot>
+  </PropertyGroup>
+  <PropertyGroup>
+    <BaseIntermediateOutputPath>$(SolutionDir)obj\$(Configuration)\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+  </PropertyGroup>
+  <!-- Единственный импорт Default.props (строго перед блоками конфигураций) -->
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <!-- 2. НАСТРОЙКА ТУЛСЕТОВ КОМПИЛЯТОРА И РЕЖИМОВ CLR ДЛЯ КАЖДОЙ ЭПОХИ -->
+  <!-- Эпоха AutoCAD 2021-2024 (.NET Framework 4.7.2) -->
+  <PropertyGroup Condition="$(Configuration.Contains('2021'))" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+    <CLRSupport>true</CLRSupport>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
+    <Keyword>ManagedCProj</Keyword>
+    <ResolveNuGetPackages>false</ResolveNuGetPackages>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <!-- Эпоха AutoCAD 2025-2026 (.NET 8.0 Core) -->
+  <PropertyGroup Condition="$(Configuration.Contains('2025'))" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v143</PlatformToolset>
+    <CLRSupport>NetCore</CLRSupport>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <CharacterSet>Unicode</CharacterSet>
+    <Keyword>NetCoreCProj</Keyword>
+    <ResolveNuGetPackages>true</ResolveNuGetPackages>
+  </PropertyGroup>
+  <!-- Эпоха AutoCAD 2027+ (.NET 10.0 Core) -->
+  <PropertyGroup Condition="$(Configuration.Contains('2027'))" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v145</PlatformToolset>
+    <CLRSupport>NetCore</CLRSupport>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <CharacterSet>Unicode</CharacterSet>
+    <Keyword>NetCoreCProj</Keyword>
+    <ResolveNuGetPackages>true</ResolveNuGetPackages>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  <!-- Настройки путей вывода бинарников (Разделяем по папкам конфигураций) -->
+  <PropertyGroup>
+    <TargetExt>.arx</TargetExt>
+    <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
+    <IntDir>$(SolutionDir)obj\$(Configuration)\</IntDir>
+    <LinkIncremental Condition="$(Configuration.Contains('Debug'))">true</LinkIncremental>
+    <LinkIncremental Condition="$(Configuration.Contains('Release'))">false</LinkIncremental>
+  </PropertyGroup>
+  <!-- 3. ПРАВИЛА КОМПИЛЯЦИИ ДЛЯ ВСЕХ ВЕРСИЙ (C++20, многопоточная DLL) -->
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <ConformanceMode>false</ConformanceMode>
+      <PreprocessorDefinitions>__WINDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <!-- Специфичные настройки компиляции для Debug/Release -->
+  <ItemDefinitionGroup Condition="$(Configuration.Contains('Debug'))">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="$(Configuration.Contains('Release'))">
+    <ClCompile>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionOrder>true</FunctionOrder>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <!-- 4. ПОДКЛЮЧЕНИЕ .LIB ФАЙЛОВ SDK В ЗАВИСИМОСТИ ОТ ВЕРСИИ -->
+  <!-- ПРАВИЛА ДЛЯ ЭПОХИ AUTOCAD 2021-2024 -->
+  <ItemDefinitionGroup Condition="$(Configuration.Contains('2021'))">
+    <ClCompile>
+      <PreprocessorDefinitions>OARX_2021;OARX_TLB=D:/OARX_SDK/V2021/inc-x64/axdb24enu.tlb;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\OARX_SDK\V2021\inc;D:\OARX_SDK\V2021\inc-x64;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">/Zc:twoPhase- %(AdditionalOptions)</AdditionalOptions>
+      <CallingConvention Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">Cdecl</CallingConvention>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">true</CompileAsManaged>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>D:\OARX_SDK\V2021\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ac1st24.lib;acdb24.lib;accore.lib;rxapi.lib;acad.lib;acge24.lib;acpal.lib;acui24.lib;adui24.lib;acdbmgd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'"> /FORCE:UNRESOLVED %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <!-- ПРАВИЛА ДЛЯ ЭПОХИ AUTOCAD 2025-2026 -->
+  <ItemDefinitionGroup Condition="$(Configuration.Contains('2025')) Or $(Configuration.Contains('2026'))">
+    <ClCompile>
+      <PreprocessorDefinitions>OARX_2025;OARX_TLB=D:/OARX_SDK/V2025/inc-x64/axdb25enu.tlb;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\OARX_SDK\V2025\inc;D:\OARX_SDK\V2025\inc-x64;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>D:\OARX_SDK\V2025\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>acdb25.lib;acge25.lib;accore.lib;rxapi.lib;acpal.lib;acdbmgd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <!-- ПРАВИЛА ДЛЯ ЭПОХИ AUTOCAD 2027+ -->
+  <ItemDefinitionGroup Condition="$(Configuration.Contains('2027'))">
+    <ClCompile>
+      <PreprocessorDefinitions>OARX_2027;OARX_TLB=D:/OARX_SDK/V2027/inc-x64/axdb26enu.tlb;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\OARX_SDK\V2027\inc;D:\OARX_SDK\V2027\inc-x64;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>D:\OARX_SDK\V2027\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>acdb26.lib;acge26.lib;accore.lib;rxapi.lib;acpal.lib;acdbmgd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="Core\BridgeManager.h" />
+    <ClInclude Include="Core\ArxBridgeCore.h" />
+    <ClInclude Include="Model\SelectedDataClass.h" />
+    <ClInclude Include="Model\Property.h" />
+    <ClInclude Include="Model\Support.h" />
+    <ClInclude Include="Core\PropertyEngine.h" />
+    <ClInclude Include="Model\SelectedObjectData.h" />
+    <ClInclude Include="Core\PropertyReactor.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Core\BridgeManager.cpp" />
+    <ClCompile Include="Core\ArxBridgeCore.cpp" />
+    <ClCompile Include="Model\SelectedDataClass.cpp" />
+    <ClCompile Include="Model\Property.cpp" />
+    <ClCompile Include="Model\Support.cpp" />
+    <ClCompile Include="Core\PropertyEngine.cpp" />
+    <ClCompile Include="Model\SelectedObjectData.cpp" />
+    <ClCompile Include="Core\PropertyReactor.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="accoremgd">
+      <HintPath>..\..\..\OARX_SDK\V2021\inc\AcCoreMgd.dll</HintPath>
+    </Reference>
+    <Reference Include="Acdbmgd">
+      <HintPath>..\..\..\OARX_SDK\V2021\inc\AcDbMgd.dll</HintPath>
+    </Reference>
+    <Reference Include="acmgd">
+      <HintPath>..\..\..\OARX_SDK\V2021\inc\AcMgd.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+  <!-- Подключаем базовые библиотеки .NET Framework 4.7.2 для AutoCAD 2021 -->
+  <ItemGroup Condition="$(Configuration.Contains('2021'))">
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <CLRCompile Include="Core\BridgeManager.cs">
+      <FileType>Document</FileType>
+    </CLRCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

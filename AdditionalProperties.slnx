@@ -1,0 +1,23 @@
+<Solution>
+  <Configurations> 
+    <BuildType Name="Debug_2021" />
+    <BuildType Name="Debug_2025" />
+    <BuildType Name="Debug_2027" />
+    <BuildType Name="Release_2021" />
+    <BuildType Name="Release_2025" />
+    <BuildType Name="Release_2027" />
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="ArxBridge/ArxBridge.vcxproj" Id="a3b2c1d0-4e5f-6a7b-8c9d-0e1f2a3b4c5d">
+     <BuildType Solution="Debug|x64" Project="Debug_2021" />
+    <Platform Solution="Debug_2021|x86" Project="x64" />
+    <Platform Solution="Debug_2025|x86" Project="x64" />
+    <Platform Solution="Debug_2027|x86" Project="x64" />
+    <Platform Solution="Debug|Any CPU" Project="Win32" />
+    <Platform Solution="Release_2021|x86" Project="x64" />
+    <Platform Solution="Release_2025|x86" Project="x64" />
+    <Platform Solution="Release_2027|x86" Project="x64" />
+  </Project>
+</Solution>
