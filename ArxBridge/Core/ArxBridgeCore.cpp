@@ -3,10 +3,23 @@
 #define IServiceProvider_INTERFACE_DEFINED_
 #define _SERVENT_H_
 
+#include <functional>
+namespace std {}
+// Принудительно отключаем глобальное пространство System на время чтения файла acpi.h
+#pragma push_macro("ValueType")
+#undef ValueType
+
+#include "acpi.h"
+#include "rxregsvc.h"
+
+#pragma pop_macro("ValueType")
+
+
 #include "Core/PropertyEngine.h"
 #include "Core/PropertyReactor.h"
 #include "Model/SelectedObjectData.h"
 
+#include <comip.h>
 // Изолированный блок импорта ActiveX автоматизации AutoCAD
 #pragma warning(push)
 #pragma warning(disable:4278)
@@ -22,6 +35,7 @@
 
 #pragma warning(pop)
 
+#include "ArxBridgeCore.h"
 #pragma comment(lib, "acpal.lib")
 #include <vcclr.h>
 #include <axobjref.h>
@@ -29,16 +43,19 @@
 #include <opmext.h>
 #include "dbapserv.h"
 
+#include <msclr/marshal_cppstd.h> // Маршалер переносим сюда
+
 namespace ArxBridge {
 
-    // Нативный COM-транслятор палитры AutoCAD со скриншота [INDEX]
+    /// <summary>
+    /// Нативный COM-транслятор палитры AutoCAD, полностью реализующий IDynamicProperty2.
+    /// </summary>
     class DynamicPropertyBridge : public IDynamicProperty2
     {
     private:
         long m_refCount = 1;
         AcDbObjectId m_currentId;
 
-        // ИСПРАВЛЕНО: Убрали gcroot подчистую! Заменили на нативную строку std::wstring
         std::wstring m_nativePropName;
         ArxBridge::PropType m_propType;
         bool m_isReadOnly;
@@ -46,14 +63,15 @@ namespace ArxBridge {
     public:
         DynamicPropertyBridge(System::String^ name, ArxBridge::PropType type, bool isReadOnly) {
             pin_ptr<const wchar_t> wname = PtrToStringChars(name);
-            m_nativePropName = wname; // Копируем данные в нативную строку std::wstring
+            m_nativePropName = wname;
             m_propType = type;
             m_isReadOnly = isReadOnly;
         }
+
         virtual ~DynamicPropertyBridge() {}
 
         // --- Реализация IUnknown ---
-        STDMETHODIMP QueryInterface(REFIID riid, void** ppvRaw) {
+        STDMETHODIMP QueryInterface(REFIID riid, void** ppvRaw) override {
             if (!ppvRaw) return E_POINTER;
             if (riid == IID_IUnknown || riid == __uuidof(IDynamicProperty2)) {
                 *ppvRaw = static_cast<IDynamicProperty2*>(this);
@@ -63,57 +81,67 @@ namespace ArxBridge {
             *ppvRaw = nullptr;
             return E_NOINTERFACE;
         }
-        STDMETHODIMP_(ULONG) AddRef() { return InterlockedIncrement(&m_refCount); }
-        STDMETHODIMP_(ULONG) Release() {
+
+        STDMETHODIMP_(ULONG) AddRef() override {
+            return InterlockedIncrement(&m_refCount);
+        }
+
+        STDMETHODIMP_(ULONG) Release() override {
             long res = InterlockedDecrement(&m_refCount);
             if (res == 0) delete this;
             return res;
         }
 
         // --- Реализация методов IDynamicProperty2 ---
-        STDMETHODIMP GetGUID(GUID* pPropGUID) { if (!pPropGUID) return E_POINTER; *pPropGUID = GUID_NULL; return S_OK; }
 
-        STDMETHODIMP GetDisplayName(BSTR* pBSTRName) {
+        STDMETHODIMP GetGUID(GUID* pPropGUID) override {
+            if (!pPropGUID) return E_POINTER;
+            *pPropGUID = GUID_NULL;
+            return S_OK;
+        }
+
+        STDMETHODIMP GetDisplayName(BSTR* pBSTRName) override {
             if (!pBSTRName) return E_POINTER;
-            // Отдаем нативную строку в COM-буфер палитры напрямую
             *pBSTRName = ::SysAllocString(m_nativePropName.c_str());
             return S_OK;
         }
 
-        STDMETHODIMP IsReadOnly(BOOL* bIsReadOnly) {
+        STDMETHODIMP IsPropertyReadOnly(BOOL* bIsReadOnly) override {
             if (!bIsReadOnly) return E_POINTER;
             *bIsReadOnly = m_isReadOnly ? TRUE : FALSE;
             return S_OK;
         }
 
-        STDMETHODIMP GetCurrentValueDataType(VARTYPE* pVarType) {
+        STDMETHODIMP GetDescription(BSTR* pBSTRDescription) override {
+            if (!pBSTRDescription) return E_POINTER;
+            *pBSTRDescription = ::SysAllocString(L"Custom Property");
+            return S_OK;
+        }
+
+        STDMETHODIMP IsPropertyEnabled(IUnknown* pUnk, BOOL* pbEnabled) override {
+            if (!pbEnabled) return E_POINTER;
+            *pbEnabled = TRUE;
+            return S_OK;
+        }
+
+        STDMETHODIMP GetCurrentValueName(BSTR* pbstrName) override {
+            if (!pbstrName) return E_POINTER;
+            *pbstrName = nullptr;
+            return S_OK;
+        }
+
+        STDMETHODIMP GetCurrentValueType(VARTYPE* pVarType) override {
             if (!pVarType) return E_POINTER;
             *pVarType = (m_propType == ArxBridge::PropType::IsDouble) ? VT_R8 : VT_I4;
             return S_OK;
         }
 
-        STDMETHODIMP GetDescription(BSTR* pBSTRDescription) { if (!pBSTRDescription) return E_POINTER; *pBSTRDescription = ::SysAllocString(L"Custom Property"); return S_OK; }
+        STDMETHODIMP Connect(IDynamicPropertyNotify2* pSink) override {
+            if (pSink == nullptr) return E_POINTER;
 
-        // ПЕРЕХВАТ КЛИКА МЫШИ: Вытягиваем нативный AcDbObjectId
-          // ИСПРАВЛЕНО: Разделяем сигнатуру под требования старого и нового SDK
-        #if defined(OARX_2021)
-        STDMETHODIMP Connect(IUnknown** pUnk)
-        #else
-        STDMETHODIMP Connect(IUnknown* pUnk)
-        #endif
-        {
-            // Для 2021 года извлекаем одиночный указатель из прилетевшего двойного указателя
-            #if defined(OARX_2021)
-            if (pUnk == nullptr || *pUnk == nullptr) return E_POINTER;
-            IUnknown* pRealUnk = *pUnk;
-            #else
-            if (pUnk == nullptr) return E_POINTER;
-            IUnknown* pRealUnk = pUnk;
-            #endif
-
-            // Извлекаем нативный ID через базовый COM-интерфейс объекта AutoCAD
+            // Извлекаем нативный ID через базовый COM-интерфейс текущего объекта AutoCAD
             IAcadObject* pAcadObj = nullptr;
-            if (SUCCEEDED(pRealUnk->QueryInterface(__uuidof(IAcadObject), (void**)&pAcadObj)) && pAcadObj != nullptr)
+            if (SUCCEEDED(pSink->QueryInterface(__uuidof(IAcadObject), (void**)&pAcadObj)) && pAcadObj != nullptr)
             {
                 LONG_PTR rawId = 0;
                 if (SUCCEEDED(pAcadObj->get_ObjectID(&rawId)) && rawId != 0)
@@ -123,7 +151,7 @@ namespace ArxBridge {
 
                     if (nativeId.isValid())
                     {
-                        m_currentId = nativeId; // Сохраняем нативный ID
+                        m_currentId = nativeId;
                         PropertyEngine::PrepareSelectionContext(nativeId.database(), { nativeId });
                     }
                 }
@@ -132,31 +160,83 @@ namespace ArxBridge {
             return S_OK;
         }
 
-        STDMETHODIMP Disconnect() { m_currentId = AcDbObjectId::kNull; return S_OK; }
+        STDMETHODIMP Disconnect() override {
+            m_currentId = AcDbObjectId::kNull;
+            return S_OK;
+        }
 
-        // МГНОВЕННЫЙ НАТИВНЫЙ ВЫВОД СТРОКИ ПАЛИТРЫ ИЗ std::map КЭША БЕЗ ТРАНЗАКЦИЙ
-        STDMETHODIMP DynamicPropertyBridge::GetCurrentValueData(IUnknown* pUnk, VARIANT* pVarData) {
+        STDMETHODIMP GetCurrentValueData(IUnknown* pUnk, VARIANT* pVarData) override {
             if (pVarData == nullptr) return E_POINTER;
             ::VariantInit(pVarData);
+
             AcDbDatabase* pDb = acdbHostApplicationServices()->workingDatabase();
             if (!pDb) return E_FAIL;
 
-            // ИСПРАВЛЕНО: Больше никакой конвертации строк, propName уже является std::wstring!
             if (m_propType == ArxBridge::PropType::IsDouble) {
                 double val = 0.0;
                 if (PropertyEngine::GetPropertyValue(pDb, m_currentId, m_nativePropName, val)) {
-                    pVarData->vt = VT_R8; pVarData->dblVal = val; return S_OK;
+                    pVarData->vt = VT_R8;
+                    pVarData->dblVal = val;
+                    return S_OK;
                 }
             }
             else if (m_propType == ArxBridge::PropType::IsInteger) {
                 int val = 0;
                 if (PropertyEngine::GetPropertyValue(pDb, m_currentId, m_nativePropName, val)) {
-                    pVarData->vt = VT_I4; pVarData->lVal = val; return S_OK;
+                    pVarData->vt = VT_I4;
+                    pVarData->lVal = val;
+                    return S_OK;
                 }
             }
             return E_FAIL;
         }
-      
-        STDMETHODIMP SetCurrentValueData(IUnknown* pUnk, const VARIANT varData) { return S_OK; }
+
+        STDMETHODIMP SetCurrentValueData(IUnknown* pUnk, const VARIANT varData) override {
+            return S_OK;
+        }
     };
+
+    void ArxBridgeCore::RegisterDynamicProperty(System::String^ propertyName)
+    {
+        if (System::String::IsNullOrEmpty(propertyName)) return;
+
+        // 2. Создаем нативный COM-мост
+        DynamicPropertyBridge* pNewProperty = new DynamicPropertyBridge(
+            propertyName,
+            ArxBridge::PropType::IsString,
+            false
+        );
+
+        // 3. Запрашиваем менеджер свойств для AcDbEntity
+        IPropertyManager2* pPropMan = (IPropertyManager2*)GET_OPMPROPERTY_MANAGER(AcDbEntity::desc());
+
+        if (pPropMan != nullptr)
+        {
+            IUnknown* pUnkProp = reinterpret_cast<IUnknown*>(pNewProperty);
+            pUnkProp->AddRef();
+
+            pPropMan->AddProperty(pUnkProp);
+
+            // Складываем в нативный вектор (работаем через указатель)
+            m_registeredProperties->push_back(pUnkProp);
+        }
+        else
+        {
+            delete pNewProperty;
+        }
+    }
+    void ArxBridgeCore::UnregisterAllProperties()
+    {
+        IPropertyManager2* pPropMan = (IPropertyManager2*)GET_OPMPROPERTY_MANAGER(AcDbEntity::desc());
+        if (pPropMan != nullptr)
+        {
+            for (IUnknown* pProp : *m_registeredProperties)
+            {
+                pPropMan->RemoveProperty(pProp);
+                pProp->Release();
+            }
+        }
+        m_registeredProperties->clear();
+    }
 }
+

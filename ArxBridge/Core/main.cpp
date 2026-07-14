@@ -1,13 +1,18 @@
-
+#include <map>
+#include <functional>
+namespace std {}
 #include <windows.h>
 #include "rxregsvc.h"
 #include "arxHeaders.h"
 #include "adslib.h" 
+#include "axobjref.h"
+#include "dynprops.h"
 
 // Подключаем наши управляющие классы ядра строго по иерархии папок!
+#include "ArxBridgeCore.h"
 #include "PropertyEngine.h"
 #include "PropertyReactor.h"
-#include "ArxBridgeCore.h"
+#include "Model/Property.h"
 
 using namespace Autodesk::AutoCAD::Runtime;
 using namespace Autodesk::AutoCAD::DatabaseServices;
@@ -26,30 +31,9 @@ public:
         // На старте инициализируем С++ кэш и запускаем слежку реактора баз данных
         ArxBridge::PropertyEngine::Initialize();
         ArxBridge::PropertyReactor::getInstance().startMonitoring();
+              
         
-        //// 3. РЕГИСТРАЦИЯ В ПАЛИТРЕ: Рассказываем AutoCAD о существовании нашего COM-класса!
-        //AcOpmPropertyManager* pOpmMgr = acOpmGetPropertyManager();
-        //if (pOpmMgr != nullptr) {
-        //    // Привязываем наш мост ко ВСЕМ графическим примитивам AutoCAD (AcDbEntity)
-        //    // Без этой строки AutoCAD никогда не вызовет методы Connect и GetCurrentValueData!
-        //    pOpmMgr->RegisterPropertyExtension(AcDbEntity::desc(), CLSID_DynamicPropertyBridge);
-        //}
-
-        // 1. Создаем экземпляр вашего управляемого COM-транслятора
-        //DynamicPropertyBridge^ myProperty = gcnew DynamicPropertyBridge(name, type, isReadOnly);
-
-        //// 2. Получаем доступ к расширению инспектора свойств через глобальный менеджер для нужного типа объектов (например, Entity)
-        //System::Type^ entityType = Autodesk::AutoCAD::DatabaseServices::Entity::typeid;
-
-        //// В современном API за регистрацию отвечает фабрика инспектора свойств:
-        //Autodesk::AutoCAD::Internal::PropertyInspector::IPropertyManager^ propMgr =
-        //    Autodesk::AutoCAD::Internal::PropertyInspector::PropertyInspectorFactory::GetPropertyManager(entityType);
-
-        //// 3. Добавляем динамическое свойство
-        //if (propMgr != nullptr) {
-        //    propMgr->AddProperty(myProperty);
-        //}
-
+        
         return retCode;
     }
 
@@ -59,6 +43,8 @@ public:
         ArxBridge::PropertyReactor::getInstance().stopMonitoring();
         ArxBridge::PropertyEngine::Terminate();
         
+        ArxBridge::ArxBridgeCore::UnregisterAllProperties();
+
         return AcRxDbxApp::On_kUnloadAppMsg(pkt);
     }
      

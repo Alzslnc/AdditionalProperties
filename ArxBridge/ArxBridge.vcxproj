@@ -89,6 +89,18 @@
     <Keyword>NetCoreCProj</Keyword>
     <ResolveNuGetPackages>true</ResolveNuGetPackages>
   </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <PlatformToolset>v145</PlatformToolset>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   <!-- Настройки путей вывода бинарников (Разделяем по папкам конфигураций) -->
@@ -151,6 +163,7 @@
       <PreprocessorDefinitions>OARX_2025;OARX_TLB=D:/OARX_SDK/V2025/inc-x64/axdb25enu.tlb;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>D:\OARX_SDK\V2025\inc;D:\OARX_SDK\V2025\inc-x64;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">ProgramDatabase</DebugInformationFormat>
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">NetCore</CompileAsManaged>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>D:\OARX_SDK\V2025\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

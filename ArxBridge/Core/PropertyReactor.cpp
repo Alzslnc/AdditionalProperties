@@ -1,3 +1,5 @@
+#include <functional>
+namespace std {}
 #include "PropertyReactor.h"
 #include "PropertyEngine.h" 
 

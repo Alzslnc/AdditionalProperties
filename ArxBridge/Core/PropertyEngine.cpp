@@ -1,3 +1,6 @@
+
+#include <functional>
+namespace std {}
 #include "PropertyEngine.h"
 #include "BridgeManager.h"
 #include "../Model/Property.h"
