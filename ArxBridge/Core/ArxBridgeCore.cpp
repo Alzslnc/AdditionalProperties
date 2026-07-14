@@ -1,49 +1,26 @@
-// Разведение интерфейсов IServiceProvider на уровне препроцессора [INDEX]
+// 1. Защита интерфейса IServiceProvider (должна быть на самом верху)
 #define IServiceProvider WINIServiceProvider
-#define IServiceProvider_INTERFACE_DEFINED_
-#define _SERVENT_H_
 
-#include <functional>
-namespace std {}
-// Принудительно отключаем глобальное пространство System на время чтения файла acpi.h
-#pragma push_macro("ValueType")
-#undef ValueType
-
-#include "acpi.h"
-#include "rxregsvc.h"
-
-#pragma pop_macro("ValueType")
-
-
+// 2. Логика вашего проекта (использует базовые типы)
 #include "Core/PropertyEngine.h"
-#include "Core/PropertyReactor.h"
 #include "Model/SelectedObjectData.h"
 
-#include <comip.h>
-// Изолированный блок импорта ActiveX автоматизации AutoCAD
+// 3. Импорт ActiveX (должен идти до некоторых заголовков AutoCAD, чтобы не было конфликтов имен)
 #pragma warning(push)
-#pragma warning(disable:4278)
-#pragma warning(disable:4192)
+#pragma warning(disable: 4278 4192)
+
 #define STRINGIFY(x) #x
 #define MACRO_TO_STRING(x) STRINGIFY(x)
-
-#if !defined(OARX_2021)
 #import MACRO_TO_STRING(OARX_TLB) no_namespace rename("Delete", "AcadDelete") rename("Block", "AcadBlock") rename("IServiceProvider", "AcadIServiceProvider")
-#else
-#import "D:/OARX_SDK/V2021/inc-x64/axdb24enu.tlb" no_namespace rename("Delete", "AcadDelete") rename("Block", "AcadBlock") rename("IServiceProvider", "AcadIServiceProvider")
-#endif
 
 #pragma warning(pop)
 
+// 4. Ядро вашего моста и системные заголовочные файлы AutoCAD / CLI
 #include "ArxBridgeCore.h"
-#pragma comment(lib, "acpal.lib")
 #include <vcclr.h>
 #include <axobjref.h>
 #include <dynprops.h>
-#include <opmext.h>
 #include "dbapserv.h"
-
-#include <msclr/marshal_cppstd.h> // Маршалер переносим сюда
 
 namespace ArxBridge {
 

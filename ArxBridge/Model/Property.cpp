@@ -1,5 +1,4 @@
 #include <cmath> 
-#include <string>
 #include "Property.h"            
 #include "SelectedDataClass.h"   
 #include "Support.h"

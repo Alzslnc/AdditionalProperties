@@ -1,20 +1,19 @@
 #pragma once
 
-// Включаем монолитные заголовки ядра ObjectARX через угловые скобки
-#include <dbmain.h>      // Содержит AcDbDatabaseReactor и AcDbObject
-#include <acdocman.h>    // Содержит AcApDocManagerReactor и AcApDocument
+#include <dbmain.h>      
+#include <acdocman.h>    
 
 namespace ArxBridge {
 
-    /// <summary>
-    /// Полностью нативный С++ реактор сессии. Работает через статические .lib библиотеки SDK.
-    /// Отслеживает жизненный цикл вкладок файлов и точечную модификацию объектов.
-    /// </summary>
     class PropertyReactor : public AcApDocManagerReactor, public AcDbDatabaseReactor
     {
     private:
         PropertyReactor();
         ~PropertyReactor();
+
+        // Запрещаем копирование и присваивание синглтона (Защита от дурака)
+        PropertyReactor(const PropertyReactor&) = delete;
+        PropertyReactor& operator=(const PropertyReactor&) = delete;
 
     public:
         static PropertyReactor& getInstance();

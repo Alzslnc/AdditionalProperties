@@ -130,6 +130,9 @@
       <Optimization>Disabled</Optimization>
       <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+      </PrecompiledHeaderFile>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="$(Configuration.Contains('Release'))">
@@ -139,6 +142,9 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+      </PrecompiledHeaderFile>
     </ClCompile>
   </ItemDefinitionGroup>
   <!-- 4. ПОДКЛЮЧЕНИЕ .LIB ФАЙЛОВ SDK В ЗАВИСИМОСТИ ОТ ВЕРСИИ -->
@@ -150,6 +156,12 @@
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">/Zc:twoPhase- %(AdditionalOptions)</AdditionalOptions>
       <CallingConvention Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">Cdecl</CallingConvention>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">true</CompileAsManaged>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug_2021|x64'">
+      </PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release_2021|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release_2021|x64'">
+      </PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>D:\OARX_SDK\V2021\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -164,11 +176,18 @@
       <AdditionalIncludeDirectories>D:\OARX_SDK\V2025\inc;D:\OARX_SDK\V2025\inc-x64;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">ProgramDatabase</DebugInformationFormat>
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">NetCore</CompileAsManaged>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">
+      </PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release_2025|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release_2025|x64'">
+      </PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>D:\OARX_SDK\V2025\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>acdb25.lib;acge25.lib;accore.lib;rxapi.lib;acpal.lib;acdbmgd.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <ModuleDefinitionFile Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">ArxBridge.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">
+      </ModuleDefinitionFile>
       <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">/CLRIMAGEFLAGS:0x00000003 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
@@ -177,6 +196,12 @@
     <ClCompile>
       <PreprocessorDefinitions>OARX_2027;OARX_TLB=D:/OARX_SDK/V2027/inc-x64/axdb26enu.tlb;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>D:\OARX_SDK\V2027\inc;D:\OARX_SDK\V2027\inc-x64;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug_2027|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Debug_2027|x64'">
+      </PrecompiledHeaderFile>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release_2027|x64'">NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile Condition="'$(Configuration)|$(Platform)'=='Release_2027|x64'">
+      </PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>D:\OARX_SDK\V2027\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>

@@ -1,13 +1,11 @@
 #pragma once
 #include <map>
-#include <functional> 
 #include <vector>
 #include <string>
-#include "adesk.h"
 #include "dbid.h"
 #include <vcclr.h>
 
-// Подключаем модель строго по иерархии проекта!
+// Подключаем модель строго по иерархии проекта
 #include "../Model/SelectedObjectData.h"
 
 namespace ArxBridge {
@@ -15,11 +13,15 @@ namespace ArxBridge {
     class PropertyEngine
     {
     private:
-        // 1. Долгоживущий многодокументный кэш чертежей: База_Данных -> Список управляемых DTO-объектов
-        static std::map<AcDbDatabase*, gcroot<System::Collections::Generic::List<ArxBridge::SelectedObjectData^>^>> MultiDocCache;
+        // 1. Долгоживущий многодокументный кэш: База_Данных -> Список управляемых DTO-объектов
+        // Убрали лишние префиксы ArxBridge:: перед SelectedObjectData
+        static std::map<AcDbDatabase*, gcroot<System::Collections::Generic::List<SelectedObjectData^>^>> MultiDocCache;
 
         // 2. Короткоживущий список объектов ТЕКУЩЕГО выбора пользователя (для геттеров палитры)
-        static gcroot<System::Collections::Generic::List<ArxBridge::SelectedObjectData^>^> CurrentSelectionCache;
+        static gcroot<System::Collections::Generic::List<SelectedObjectData^>^> CurrentSelectionCache;
+
+        template <typename T, typename ParserFunc>
+        static bool TryGetCachedValue(AcDbObjectId id, const std::wstring& propName, PropType expectedType, T& outValue, ParserFunc parser);
 
     public:
         // 3. Короткоживущие Flyweight-агрегаторы числовых данных КМ/КЖ (существуют в рамках одного выбора)

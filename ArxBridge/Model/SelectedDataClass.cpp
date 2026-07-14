@@ -1,3 +1,4 @@
+#include <functional>
 #include "SelectedDataClass.h"
 #include "SelectedObjectData.h"
 #include "Property.h"

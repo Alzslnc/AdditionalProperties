@@ -21,6 +21,9 @@
       <BuildType Solution="Release_2021|*" Project="Release" />
       <BuildType Solution="Release_2025|*" Project="Release" />
       <BuildType Solution="Release_2027|*" Project="Release" />
+      <Build Solution="Debug_2025|x64" Project="false" />
+      <Build Solution="Debug_2027|x64" Project="false" />
+      <Build Solution="Release_2027|x64" Project="false" />
     </Project>
     <Project Path="Modules/CurveProperties/CurvePropertiesV2025/CurvePropertiesV2025.csproj" Id="2aee7cc7-9d5f-4e54-976f-faaa4d7f42b1">
       <BuildType Solution="Debug_2021|*" Project="Debug" />
@@ -29,6 +32,9 @@
       <BuildType Solution="Release_2021|*" Project="Release" />
       <BuildType Solution="Release_2025|*" Project="Release" />
       <BuildType Solution="Release_2027|*" Project="Release" />
+      <Build Solution="Debug_2021|x64" Project="false" />
+      <Build Solution="Debug_2027|x64" Project="false" />
+      <Build Solution="Release_2027|x64" Project="false" />
     </Project>
     <Project Path="Modules/CurveProperties/CurvePropertiesV2027/CurvePropertiesV2027.csproj" Id="38ba5777-5bb8-4f35-a94e-c8083891bcda">
       <BuildType Solution="Debug_2021|*" Project="Debug" />
@@ -37,6 +43,8 @@
       <BuildType Solution="Release_2021|*" Project="Release" />
       <BuildType Solution="Release_2025|*" Project="Release" />
       <BuildType Solution="Release_2027|*" Project="Release" />
+      <Build Solution="Debug_2021|x64" Project="false" />
+      <Build Solution="Debug_2025|x64" Project="false" />
     </Project>
   </Folder>
   <Project Path="ArxBridge/ArxBridge.vcxproj" Id="a3b2c1d0-4e5f-6a7b-8c9d-0e1f2a3b4c5d">
