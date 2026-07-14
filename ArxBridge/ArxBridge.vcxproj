@@ -150,10 +150,13 @@
     <ClCompile>
       <PreprocessorDefinitions>OARX_2025;OARX_TLB=D:/OARX_SDK/V2025/inc-x64/axdb25enu.tlb;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>D:\OARX_SDK\V2025\inc;D:\OARX_SDK\V2025\inc-x64;$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DebugInformationFormat Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>D:\OARX_SDK\V2025\lib-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>acdb25.lib;acge25.lib;accore.lib;rxapi.lib;acpal.lib;acdbmgd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <ModuleDefinitionFile Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">ArxBridge.def</ModuleDefinitionFile>
+      <AdditionalOptions Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">/CLRIMAGEFLAGS:0x00000003 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <!-- ПРАВИЛА ДЛЯ ЭПОХИ AUTOCAD 2027+ -->
@@ -180,6 +183,7 @@
   <ItemGroup>
     <ClCompile Include="Core\BridgeManager.cpp" />
     <ClCompile Include="Core\ArxBridgeCore.cpp" />
+    <ClCompile Include="Core\main.cpp" />
     <ClCompile Include="Model\SelectedDataClass.cpp" />
     <ClCompile Include="Model\Property.cpp" />
     <ClCompile Include="Model\Support.cpp" />

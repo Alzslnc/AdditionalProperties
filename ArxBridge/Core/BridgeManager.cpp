@@ -15,26 +15,22 @@ using namespace System;
 using namespace System::Collections::Generic;
 using namespace Autodesk::AutoCAD::DatabaseServices;
 
-gcroot<List<ArxBridge::SelectedDataClass^>^> BridgeManager::m_providers;
 
 void BridgeManager::Initialize() {
-    if (((List<ArxBridge::SelectedDataClass^>^)m_providers) == nullptr) {
+    // Теперь это обычная ссылка, проверяем ее БЕЗ приведений типов! [INDEX]
+    if (m_providers == nullptr) {
         m_providers = gcnew List<ArxBridge::SelectedDataClass^>();
     }
 }
 
 void BridgeManager::RegisterProvider(ArxBridge::SelectedDataClass^ provider) {
-    if (provider != nullptr && ((List<ArxBridge::SelectedDataClass^>^)m_providers) != nullptr && !m_providers->Contains(provider)) {
+    if (provider != nullptr && m_providers != nullptr && !m_providers->Contains(provider)) {
         m_providers->Add(provider);
     }
 }
 
-/// <summary>
-/// ПАКЕТНЫЙ ОБНОВИТЕЛЬ ПАРАМЕТРОВ КЭША (Максимально облегченный вариант)
-/// </summary>
 void BridgeManager::ExecuteBatchUpdate(List<ArxBridge::SelectedObjectData^>^ nonActualData) {
-
-    if (nonActualData == nullptr || nonActualData->Count == 0 || ((List<ArxBridge::SelectedDataClass^>^)m_providers) == nullptr || m_providers->Count == 0) {
+    if (nonActualData == nullptr || nonActualData->Count == 0 || m_providers == nullptr) {
         return;
     }
 
@@ -44,28 +40,22 @@ void BridgeManager::ExecuteBatchUpdate(List<ArxBridge::SelectedObjectData^>^ non
     Transaction^ tr = db->TransactionManager->StartTransaction();
     try {
         for (int i = 0; i < nonActualData->Count; ++i) {
-
             ArxBridge::SelectedObjectData^ objectData = nonActualData[i];
             if (objectData == nullptr) continue;
 
             ObjectId id = objectData->ObjectId;
-            if (!id.IsValid) continue;
+            if (!id.IsValid) continue; // Наш проверенный синтаксис с большой буквы!
 
             Entity^ entity = dynamic_cast<Entity^>(tr->GetObject(id, OpenMode::ForRead));
             if (entity == nullptr) continue;
 
-            // МЫ ПОЛНОСТЬЮ УБРАЛИ ОТСЮДА ОЧИСТКУ И ИНИЦИАЛИЗАЦИЮ СПИСКА!
-            // Объект приходит уже подготовленным из PropertyEngine/PropertyReactor.
-
             objectData->ClassName = entity->GetType()->Name;
-            objectData->IsModified = false; // Сбрасываем флаг, так как сейчас данные обновятся
+            objectData->IsModified = false;
 
-            // Извлекаем список провайдеров из gcroot для безопасного for each
-            List<ArxBridge::SelectedDataClass^>^ currentProviders = m_providers;
-
-            for each (ArxBridge::SelectedDataClass ^ provider in currentProviders) {
+            // ИСПРАВЛЕНО: Никаких извлечений из gcroot больше не нужно! Перебираем напрямую [INDEX]
+            for each (ArxBridge::SelectedDataClass ^ provider in m_providers) {
                 try {
-                    provider->GetProperties(entity, objectData); // C# наследник просто добавляет свойства в Properties
+                    provider->GetProperties(entity, objectData);
                 }
                 catch (...) {}
             }
@@ -76,3 +66,4 @@ void BridgeManager::ExecuteBatchUpdate(List<ArxBridge::SelectedObjectData^>^ non
         // Автоматический Abort
     }
 }
+

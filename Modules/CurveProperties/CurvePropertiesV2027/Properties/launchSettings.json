@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "CurvePropertiesV2025": {
+      "commandName": "Project"
+    },
+    "Профиль 1": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Autodesk\\AutoCAD 2026\\acad.exe",
+      "commandLineArgs": "/ld \"C:\\Program Files\\Autodesk\\AutoCAD 2026\\AecBase.dbx\" /p \"<<C3D_Metric>>\" /product C3D /language ru-RU"
+    }
+  }
+}

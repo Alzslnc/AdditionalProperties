@@ -159,20 +159,4 @@ namespace ArxBridge {
       
         STDMETHODIMP SetCurrentValueData(IUnknown* pUnk, const VARIANT varData) { return S_OK; }
     };
-
-    // Глобальная точка инициализации .arx модуля
-    public ref class ArxBridgeCore
-    {
-    public:
-        static void Initialize()
-        {
-            // Запускаем глобальную автоматику нативного отслеживания чертежей
-            PropertyReactor::getInstance().startMonitoring();
-        }
-        static void Terminate()
-        {
-            PropertyReactor::getInstance().stopMonitoring();
-            PropertyEngine::Terminate();
-        }
-    };
 }

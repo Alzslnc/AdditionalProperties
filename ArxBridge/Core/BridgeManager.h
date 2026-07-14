@@ -6,12 +6,12 @@ namespace ArxBridge {
     ref class SelectedObjectData;
 }
 
-class BridgeManager {
-private:
-    // Управляемый реестр зарегистрированных C# плагинов КМ/КЖ
-    static gcroot<System::Collections::Generic::List<ArxBridge::SelectedDataClass^>^> m_providers;
+public ref class BridgeManager {
+private:   
+    static System::Collections::Generic::List<ArxBridge::SelectedDataClass^>^ m_providers;
 
 public:
+
     // Инициализация статических компонентов менеджера при старте
     static void Initialize();
 

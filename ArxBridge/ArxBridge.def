@@ -1,0 +1,5 @@
+LIBRARY      "ArxBridge"
+
+EXPORTS
+    acrxEntryPoint		@1
+    acrxGetApiVersion	@2
