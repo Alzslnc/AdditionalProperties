@@ -32,17 +32,17 @@ namespace ArxBridge {
     private:
         long m_refCount = 1;
         AcDbObjectId m_currentId;
-
         std::wstring m_nativePropName;
-        ArxBridge::PropType m_propType;
-        bool m_isReadOnly;
+        std::wstring m_nativeDescription;
+        ArxBridge::PropType m_propType;   
 
     public:
-        DynamicPropertyBridge(System::String^ name, ArxBridge::PropType type, bool isReadOnly) {
+        DynamicPropertyBridge(System::String^ name, System::String^ description, ArxBridge::PropType type) {
             pin_ptr<const wchar_t> wname = PtrToStringChars(name);
+            pin_ptr<const wchar_t> wdescription = PtrToStringChars(description);
             m_nativePropName = wname;
-            m_propType = type;
-            m_isReadOnly = isReadOnly;
+            m_nativeDescription = wdescription;
+            m_propType = type;       
         }
 
         virtual ~DynamicPropertyBridge() {}
@@ -83,11 +83,27 @@ namespace ArxBridge {
             return S_OK;
         }
 
-        STDMETHODIMP IsPropertyReadOnly(BOOL* bIsReadOnly) override {
+        STDMETHODIMP DynamicPropertyBridge::IsPropertyReadOnly(BOOL* bIsReadOnly) override {
             if (!bIsReadOnly) return E_POINTER;
-            *bIsReadOnly = m_isReadOnly ? TRUE : FALSE;
+
+            *bIsReadOnly = TRUE; // По умолчанию блокируем поле из соображений безопасности
+
+            // Достаем активную базу данных текущего чертежа
+            AcDbDatabase* pDb = acdbHostApplicationServices()->workingDatabase();
+
+            // Если база валидна и у текущего экземпляра моста есть сохраненный m_currentId
+            if (pDb && m_currentId.isValid()) {
+                bool isReadOnlyFromCache = true;
+
+                // Опрашиваем кэш в PropertyEngine (передаем переменную по ссылке)
+                if (PropertyEngine::GetPropertyValue(pDb, m_currentId, m_nativePropName, isReadOnlyFromCache)) {
+                    // Переводим нативный bool в COM-формат TRUE или FALSE
+                    *bIsReadOnly = isReadOnlyFromCache ? TRUE : FALSE;
+                }
+            }
             return S_OK;
         }
+
 
         STDMETHODIMP GetDescription(BSTR* pBSTRDescription) override {
             if (!pBSTRDescription) return E_POINTER;
@@ -116,7 +132,6 @@ namespace ArxBridge {
         STDMETHODIMP Connect(IDynamicPropertyNotify2* pSink) override {
             if (pSink == nullptr) return E_POINTER;
 
-            // Извлекаем нативный ID через базовый COM-интерфейс текущего объекта AutoCAD
             IAcadObject* pAcadObj = nullptr;
             if (SUCCEEDED(pSink->QueryInterface(__uuidof(IAcadObject), (void**)&pAcadObj)) && pAcadObj != nullptr)
             {
@@ -126,16 +141,41 @@ namespace ArxBridge {
                     AcDbObjectId nativeId;
                     nativeId.setFromOldId(rawId);
 
-                    if (nativeId.isValid())
+                    if (nativeId.isValid() && nativeId.database() != nullptr)
                     {
+                        // 🚀 ШАГ 1: СНАЧАЛА ВСЕГДА ЗАПОМИНАЕМ ID ДЛЯ ТЕКУЩЕГО ЭКЗЕМПЛЯРА СВОЙСТВА!
                         m_currentId = nativeId;
-                        PropertyEngine::PrepareSelectionContext(nativeId.database(), { nativeId });
+
+                        // ШАГ 2: ТОЛЬКО ТЕПЕРЬ ОПРАШИВАЕМ НАШ ОБЩИЙ СТАТИЧЕСКИЙ АВТОМАТ
+                        BridgeState currentState = ArxBridgeCore::GetState();
+
+                        // Блокировка кадра: если мы уже заблокированы в Connect — просто выходим.
+                        // При этом m_currentId у этого экземпляра свойства уже успешно сохранен!
+                        if (currentState == BridgeState::Connect) {
+                            pAcadObj->Release();
+                            return S_OK;
+                        }
+
+                        // Пакетная фиксация изменений: если вернулись из SetValue
+                        if (currentState == BridgeState::Write) {
+                            PropertyEngine::CommitSelectionChanges(nativeId.database());
+                        }
+
+                        // Пакетное ленивое чтение геометрии чертежа в C# кэш
+                        if (currentState == BridgeState::Read) {
+                            PropertyEngine::PrepareSelectionContext(nativeId.database(), { nativeId });
+                        }
+
+                        // Универсальный финал: закрываем замок кадра
+                        ArxBridgeCore::SetState(BridgeState::Connect);
                     }
                 }
                 pAcadObj->Release();
             }
             return S_OK;
         }
+
+
 
         STDMETHODIMP Disconnect() override {
             m_currentId = AcDbObjectId::kNull;
@@ -146,42 +186,66 @@ namespace ArxBridge {
             if (pVarData == nullptr) return E_POINTER;
             ::VariantInit(pVarData);
 
+            // 1. Возвращаем стабильное извлечение рабочей базы данных из старого метода
             AcDbDatabase* pDb = acdbHostApplicationServices()->workingDatabase();
-            if (!pDb) return E_FAIL;
+            if (!pDb || !m_currentId.isValid()) return E_FAIL;
 
-            if (m_propType == ArxBridge::PropType::IsDouble) {
-                double val = 0.0;
-                if (PropertyEngine::GetPropertyValue(pDb, m_currentId, m_nativePropName, val)) {
-                    pVarData->vt = VT_R8;
-                    pVarData->dblVal = val;
-                    return S_OK;
-                }
+            std::wstring stringValue;
+
+            // 2. Вызываем строковый геттер, используя сохраненный m_currentId
+            if (PropertyEngine::GetPropertyValue(pDb, m_currentId, m_nativePropName, stringValue)) {
+                pVarData->vt = VT_BSTR;
+                pVarData->bstrVal = ::SysAllocString(stringValue.c_str());
+
+                // Сброс триггера автомата для следующего кадра палитры
+                ArxBridgeCore::SetState(BridgeState::Read);
+                return S_OK;
             }
-            else if (m_propType == ArxBridge::PropType::IsInteger) {
-                int val = 0;
-                if (PropertyEngine::GetPropertyValue(pDb, m_currentId, m_nativePropName, val)) {
-                    pVarData->vt = VT_I4;
-                    pVarData->lVal = val;
-                    return S_OK;
-                }
-            }
-            return E_FAIL;
+
+            // 3. Защита: если кэш пуст, отдаем пустую COM-строку, чтобы палитра не зависала
+            pVarData->vt = VT_BSTR;
+            pVarData->bstrVal = ::SysAllocString(L"");
+            ArxBridgeCore::SetState(BridgeState::Read);
+            return S_OK;
         }
+
 
         STDMETHODIMP SetCurrentValueData(IUnknown* pUnk, const VARIANT varData) override {
             return S_OK;
         }
     };
 
-    void ArxBridgeCore::RegisterDynamicProperty(System::String^ propertyName)
+    void ArxBridgeCore::Initialize() {
+        if (m_registeredProperties == nullptr) {
+            m_registeredProperties = new std::vector<IUnknown*>();
+        }
+        m_currentState = BridgeState::Read; // Изначально выставляем Read
+    }
+
+    void ArxBridgeCore::Terminate() {
+        UnregisterAllProperties();
+        if (m_registeredProperties != nullptr) {
+            delete m_registeredProperties;
+            m_registeredProperties = nullptr;
+        }
+    }
+    void ArxBridgeCore::SetState(BridgeState newState) {
+        m_currentState = newState;
+    }
+
+    BridgeState ArxBridgeCore::GetState() {
+        return m_currentState;
+    }
+
+    void ArxBridgeCore::RegisterDynamicProperty(System::String^ propertyName, System::String^ propertyDescription, ArxBridge::PropType propType)
     {
         if (System::String::IsNullOrEmpty(propertyName)) return;
 
         // 2. Создаем нативный COM-мост
         DynamicPropertyBridge* pNewProperty = new DynamicPropertyBridge(
             propertyName,
-            ArxBridge::PropType::IsString,
-            false
+            propertyDescription,
+            propType           
         );
 
         // 3. Запрашиваем менеджер свойств для AcDbEntity

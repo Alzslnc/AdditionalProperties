@@ -189,12 +189,167 @@ namespace ArxBridge {
             return std::stoi(str);
             });
     }
-
+    bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, bool& outValue) {
+        Property^ prop = FindPropertyInCache(id, propName);
+        if (prop != nullptr) {
+            outValue = prop->IsReadOnly; // Вызывается ваше C# свойство (которое учитывает IsSum)
+            return true;
+        }
+        return false;
+    }
     bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, std::wstring& outValue) {
-        // Предполагается, что строки в вашем перечислении называются PropType::IsString
+        
+        // 🚀 ИСПРАВЛЕНО: Если палитра запрашивает свойство, которое есть в сумматорах КМ/КЖ,
+        // мы переводим число в строку и отдаем палитре!
+        auto itDouble = AggregatedDoubles.find(propName);
+        if (itDouble != AggregatedDoubles.end() && static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache)->Count > 1) {
+            outValue = std::to_wstring(itDouble->second);
+            // Красивый штрих: убираем лишние нули после запятой, если число целое (например, 45.000000 -> 45)
+            outValue.erase(outValue.find_last_not_of(L'0') + 1, std::wstring::npos);
+            if (outValue.back() == L'.') outValue.pop_back();
+            return true;
+        }
+
+        auto itInt = AggregatedInts.find(propName);
+        if (itInt != AggregatedInts.end() && static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache)->Count > 1) {
+            outValue = std::to_wstring(itInt->second);
+            return true;
+        }
+
+        // Если это не сумма, а обычное индивидуальное свойство объекта — вызываем наш шаблон поиска
         return TryGetCachedValue(id, propName, PropType::IsString, outValue, [](const wchar_t* str) {
             return std::wstring(str);
-            });
+        });
+    }
+
+    ArxBridge::Property^ PropertyEngine::FindPropertyInCache(AcDbObjectId id, const std::wstring& propName) {
+        if (static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) == nullptr) return nullptr;
+
+        List<SelectedObjectData^>^ currentSelection = CurrentSelectionCache;
+        for (int i = 0; i < currentSelection->Count; ++i) {
+            SelectedObjectData^ objData = currentSelection[i];
+            if (objData == nullptr || !objData->IsIdenticalTo(id) || objData->Properties == nullptr) continue;
+
+            for (int j = 0; j < objData->Properties->Count; ++j) {
+                Property^ prop = objData->Properties[j];
+                if (prop == nullptr) continue;
+
+                pin_ptr<const wchar_t> wName = PtrToStringChars(prop->Name);
+                if (std::wstring(wName) == propName) {
+                    return prop; // Нашли свойство, возвращаем его наружу!
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    // 1. СЕТТЕР ДЛЯ ЧИСТЫХ ЧИСЕЛ С ПЛАВАЮЩЕЙ ТОЧКОЙ (DOUBLE)
+    bool PropertyEngine::SetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, double newValue) {
+        Property^ prop = FindPropertyInCache(id, propName);
+        if (prop == nullptr || prop->IsReadOnly || prop->PropType != PropType::IsDouble) return false;
+
+        prop->NewValue = newValue.ToString(System::Globalization::CultureInfo::InvariantCulture);
+        return true;
+    }
+
+    // 2. СЕТТЕР ДЛЯ ЦЕЛИКОВЫХ ЧИСЕЛ (INT)
+    bool PropertyEngine::SetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, int newValue) {
+        Property^ prop = FindPropertyInCache(id, propName);
+        if (prop == nullptr || prop->IsReadOnly || prop->PropType != PropType::IsInteger) return false;
+
+        prop->NewValue = newValue.ToString();
+        return true;
+    }
+
+    // 3. УНИВЕРСАЛЬНЫЙ СТРОКОВЫЙ СЕТТЕР ДЛЯ VT_BSTR (ТЕКУЩИЙ РАБОЧИЙ ВАРИАНТ)
+    bool PropertyEngine::SetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, const std::wstring& newValueRaw) {
+        Property^ prop = FindPropertyInCache(id, propName);
+        if (prop == nullptr || prop->IsReadOnly) return false;
+
+        // Нормализуем строку (заменяем запятую на точку для проверки)
+        std::wstring normalizedStr = newValueRaw;
+        size_t commaPos = normalizedStr.find(L',');
+        if (commaPos != std::wstring::npos) {
+            normalizedStr[commaPos] = L'.';
+        }
+
+        // Полноценная валидация типа данных
+        try {
+            if (prop->PropType == PropType::IsDouble) {
+                size_t processedChars = 0;
+                std::stod(normalizedStr, &processedChars);
+                if (processedChars != normalizedStr.length()) return false;
+            }
+            else if (prop->PropType == PropType::IsInteger) {
+                size_t processedChars = 0;
+                std::stoi(normalizedStr, &processedChars);
+                if (processedChars != normalizedStr.length()) return false;
+            }
+        }
+        catch (...) {
+            return false; // Ввели буквы в числовое поле
+        }
+
+        // Запись успешна
+        prop->NewValue = gcnew System::String(newValueRaw.c_str());
+        return true;
+    }
+
+
+    // 🚀 ВСПОМОГАТЕЛЬНЫЙ МЕТОД ФИЛЬТРАЦИИ ОБЪЕКТОВ ДЛЯ ПАЛИТРЫ
+    bool PropertyEngine::HasProperty(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName) {
+        if (static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) == nullptr) return false;
+
+        List<SelectedObjectData^>^ currentSelection = CurrentSelectionCache;
+
+        for (int i = 0; i < currentSelection->Count; ++i) {
+            SelectedObjectData^ objData = currentSelection[i];
+            if (objData == nullptr || !objData->IsIdenticalTo(id) || objData->Properties == nullptr) continue;
+
+            for (int j = 0; j < objData->Properties->Count; ++j) {
+                Property^ prop = objData->Properties[j];
+                if (prop == nullptr) continue;
+
+                pin_ptr<const wchar_t> wName = PtrToStringChars(prop->Name);
+                if (std::wstring(wName) == propName) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // 🚀 6. ГЛАВНЫЙ СИНХРОННЫЙ КОНВЕЙЕР ОБРАБОТКИ ЗАПИСИ
+    void PropertyEngine::CommitSelectionChanges(AcDbDatabase* pDb) {
+        if (pDb == nullptr) return;
+
+        // Безопасное приведение нашего короткоживущего кэша текущего выбора
+        if (static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) == nullptr) return;
+
+        List<SelectedObjectData^>^ currentSelection = CurrentSelectionCache;
+
+        // Создаем отдельный изолированный список только для ИЗМЕНЕННЫХ объектов
+        List<SelectedObjectData^>^ changedList = gcnew List<SelectedObjectData^>();
+
+        // Собираем корзину измененных элементов на основе вашего свойства IsChanged
+        for (int i = 0; i < currentSelection->Count; ++i) {
+            SelectedObjectData^ objData = currentSelection[i];
+            if (objData != nullptr && objData->IsChanged) {
+                changedList->Add(objData);
+            }
+        }
+
+        // Если пользователь действительно что-то поменял — отправляем пакет на запись!
+        if (changedList->Count > 0) {
+
+            // Вызываем наш обновленный метод записи с флагами Locked Layer
+            BridgeManager::ExecuteBatchWrite(changedList);
+
+            // Финальный штрих: сбрасываемFlyweight-сумматоры КМ/КЖ, 
+            // так как геометрия изменилась, и старые суммы больше не актуальны!
+            AggregatedDoubles.clear();
+            AggregatedInts.clear();
+        }
     }
 
 } // namespace ArxBridge

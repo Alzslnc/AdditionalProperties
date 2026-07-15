@@ -4,6 +4,7 @@
 #include "ArxBridgeCore.h"
 #include "PropertyEngine.h"
 #include "PropertyReactor.h"
+#include "Model/ModelSupport.h"
 
 // Используем наше пространство имен, чтобы убрать визуальный шум из методов
 using namespace ArxBridge;

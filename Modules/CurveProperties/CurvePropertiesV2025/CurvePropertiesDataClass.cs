@@ -14,12 +14,14 @@ namespace CurveProperties
         public CurvePropertiesDataClass()
         {
             Name = "Данные кривых";
-            AllProperties = new Dictionary<string, bool>
+
+            // Переводим AllProperties на новый класс метаданных!
+            AllProperties = new Dictionary<string, PropertyMeta>
             {
-                { "Угол", true },
-                { "Вертикальный угол", true },
-                { "Длина (сумма)", true },
-                { "Площадь (сумма)", true },          
+                { "Угол", new PropertyMeta("Угол", "Угол наклона кривой в плоскости X-Y", PropType.IsDouble) },
+                { "Вертикальный угол", new PropertyMeta("Вертикальный угол", "Угол наклона кривой относительно плоскости X-Y", PropType.IsDouble) },
+                { "Длина (сумма)", new PropertyMeta("Длина (сумма)", "Суммарная длина всех выделенных кривых", PropType.IsDouble) },
+                { "Площадь (сумма)", new PropertyMeta("Площадь (сумма)", "Суммарная площадь замкнутых контуров", PropType.IsDouble) },
             };
         }
 
@@ -37,7 +39,7 @@ namespace CurveProperties
             if (e is Curve curve && curve.IsAcadCurve())
             {
                 // Расчет углов для Line
-                if (e is Line l && (AllProperties["Угол"] || AllProperties["Вертикальный угол"]))
+                if (e is Line l && (AllProperties["Угол"].IsEnabled || AllProperties["Вертикальный угол"].IsEnabled))
                 {
                     double angle = 0;
                     double vAngle = 0;
@@ -56,19 +58,19 @@ namespace CurveProperties
                         }
                     }
 
-                    if (AllProperties["Угол"]) o.Properties.Add(new Property("Угол", angle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
-                    if (AllProperties["Вертикальный угол"]) o.Properties.Add(new Property("Вертикальный угол", vAngle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
+                    if (AllProperties["Угол"].IsEnabled) o.Properties.Add(new Property("Угол", angle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
+                    if (AllProperties["Вертикальный угол"].IsEnabled) o.Properties.Add(new Property("Вертикальный угол", vAngle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
                 }
 
                 // Расчет длины (Убрали дублирующийся if)
-                if (AllProperties["Длина (сумма)"])
+                if (AllProperties["Длина (сумма)"].IsEnabled)
                 {
                     double length = curve.GetLength();
                     o.Properties.Add(new Property("Длина (сумма)", length.ToString(CultureInfo.InvariantCulture), true, this) { Group = "Геометрия", IsSum = true });
                 }
 
                 // Расчет площади (Защита от разомкнутых кривых, не имеющих площади)
-                if (AllProperties["Площадь (сумма)"])
+                if (AllProperties["Площадь (сумма)"].IsEnabled)
                 {
                     double area = 0;
                     bool error = false;
@@ -83,7 +85,7 @@ namespace CurveProperties
 
                     string areaStr = area.ToString(CultureInfo.InvariantCulture);
                                       
-                    if (AllProperties["Площадь (сумма)"]) o.Properties.Add(new Property("Площадь (сумма)", areaStr, true, this) { Group = "Геометрия", IsSum = true, Error = error });
+                    if (AllProperties["Площадь (сумма)"].IsEnabled) o.Properties.Add(new Property("Площадь (сумма)", areaStr, true, this) { Group = "Геометрия", IsSum = true, Error = error });
                 }
             }
         }

@@ -1,4 +1,5 @@
 #pragma once
+#include "Model/ModelSupport.h"
 
 // Подключаем базовые пространства имен .NET
 using namespace System;
@@ -9,6 +10,8 @@ using namespace System::Linq;
 using namespace Autodesk::AutoCAD::DatabaseServices;
 
 namespace ArxBridge {
+
+
 
     // Добавляем опережающие объявления для ОБОИХ классов:
     ref class Property;
@@ -25,7 +28,7 @@ namespace ArxBridge {
         String^ _name;
         bool _changeNeed;
         int _precision;
-        Dictionary<String^, bool>^ _allProperties;
+        Dictionary<String^, PropertyMeta^>^ _allProperties;
 
     public:
         // Конструктор по умолчанию для инициализации полей
@@ -33,7 +36,7 @@ namespace ArxBridge {
         {
             _changeNeed = false;
             _precision = 3;
-            _allProperties = gcnew Dictionary<String^, bool>();
+            _allProperties = gcnew Dictionary<String^, PropertyMeta^>();
         }
 
         /// <summary>
@@ -99,9 +102,9 @@ namespace ArxBridge {
         /// <summary>
         /// список параметров, с флагом отображения в панели
         /// </summary>
-        property Dictionary<String^, bool>^ AllProperties {
-            Dictionary<String^, bool>^ get() { return _allProperties; }
-            void set(Dictionary<String^, bool>^ value) { _allProperties = value; }
+        property Dictionary<String^, PropertyMeta^>^ AllProperties {
+            Dictionary<String^, PropertyMeta^>^ get() { return _allProperties; }
+            void set(Dictionary<String^, PropertyMeta^>^ value) { _allProperties = value; }
         }
 
         /// <summary>
@@ -109,8 +112,13 @@ namespace ArxBridge {
         /// </summary>
         bool CheckProperties()
         {
-            if (_allProperties != nullptr && _allProperties->ContainsValue(true))
-                return true;
+            if (_allProperties != nullptr)
+            {
+                for each (PropertyMeta^ meta in _allProperties->Values)
+                {
+                    if (meta->IsEnabled)  return true;
+                }
+            }               
             return false;
         }
     };

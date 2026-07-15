@@ -1,4 +1,5 @@
 #pragma once
+#include "Model/ModelSupport.h"
 
 using namespace System;
 using namespace System::Collections::Generic;
@@ -17,18 +18,6 @@ namespace ArxBridge {
     };
 
     /// <summary>
-    /// Типы данных для встроенной панели AutoCAD
-    /// </summary>
-    public enum class PropType
-    {
-        IsString,
-        IsDouble,
-        IsInteger,
-        IsBoolean,
-        IsComboBox
-    };
-
-    /// <summary>
     /// Класс индивидуального и совмещенного свойства объекта AutoCAD.
     /// Полностью очищен от Object^ в полях значений для защиты компилятора в gcroot.h.
     /// </summary>
@@ -41,6 +30,7 @@ namespace ArxBridge {
         bool _fullUpdateNeed;
         bool _isSum;
         String^ _name;
+        String^ _description;
         String^ _objectName;
         String^ _group;
         SelectedDataClass^ _parent;
@@ -72,6 +62,11 @@ namespace ArxBridge {
             void set(String^ value) { _name = value; }
         }
 
+        property String^ Description{
+                      String ^ get() { return _description; }
+                      void set(String ^ value) { _description = value; }
+        }
+
         property String^ ObjectName {
             String^ get() { return _objectName; }
             void set(String^ value) { _objectName = value; }
@@ -87,7 +82,7 @@ namespace ArxBridge {
             void set(SelectedDataClass^ value) { _parent = value; }
         }
 
-        property ArxBridge::PropType PropType;
+        property PropType PropType;
 
         property bool IsSum {
             bool get() { return _isSum; }

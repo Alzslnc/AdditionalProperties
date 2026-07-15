@@ -1,4 +1,5 @@
 #pragma once
+#include "Model/ModelSupport.h"
 
 namespace ArxBridge {
 
@@ -21,8 +22,10 @@ namespace ArxBridge {
 
         // Пакетный обновитель параметров долгоживущего кэша (Void-вариант)
         static void ExecuteBatchUpdate(
-            System::Collections::Generic::List<SelectedObjectData^>^ nonActualData
+            System::Collections::Generic::List<SelectedObjectData^>^ nonActualData            
         );
+
+        static void ExecuteBatchWrite(System::Collections::Generic::List<SelectedObjectData^>^ changedData);
     };
 
 }
