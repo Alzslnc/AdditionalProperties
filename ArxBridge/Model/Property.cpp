@@ -35,9 +35,10 @@ namespace ArxBridge {
     }
 
     // --- 2. Параметризованный конструктор модулей КМ/КЖ ---
-    Property::Property(String^ name, String^ value, bool isReadOnly, SelectedDataClass^ parent)
+    Property::Property(String^ name, String^ description, String^ value, bool isReadOnly, ArxBridge::PropType propType, SelectedDataClass^ parent)
     {
         _name = name;
+        _description = description;
         _value = value;
         _isReadOnly = isReadOnly;
         _parent = parent;
@@ -46,7 +47,7 @@ namespace ArxBridge {
         _isSum = false;
         _objectName = String::Empty;
         _group = String::Empty;
-        PropType = ArxBridge::PropType::IsString;
+        PropType = propType;
 
         _showVarious = true;
         _error = false;

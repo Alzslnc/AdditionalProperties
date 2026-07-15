@@ -105,7 +105,7 @@
   <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   <!-- Настройки путей вывода бинарников (Разделяем по папкам конфигураций) -->
   <PropertyGroup>
-    <TargetExt>.arx</TargetExt>
+    <TargetExt>.dll</TargetExt>
     <OutDir>$(SolutionDir)bin\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\</IntDir>
     <LinkIncremental Condition="$(Configuration.Contains('Debug'))">true</LinkIncremental>

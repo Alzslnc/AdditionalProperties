@@ -16,24 +16,42 @@ namespace ArxBridge {
             m_providers = gcnew List<SelectedDataClass^>();
         }
     }
+    void BridgeManager::Terminate() {      
+        if (m_providers != nullptr) {
+            m_providers->Clear();
+            m_providers = nullptr; // Возвращаем в исходный nullptr для следующего цикла
+        }
+    }
+    void BridgeManager::RegisterProvider(System::Object^ providerObj) {
+        if (providerObj == nullptr || m_providers == nullptr) return;
 
-    void BridgeManager::RegisterProvider(SelectedDataClass^ provider) {
-        if (provider != nullptr && m_providers != nullptr && !m_providers->Contains(provider)) {
+        // Безопасное приведение типов внутри С++
+        SelectedDataClass^ provider = dynamic_cast<SelectedDataClass^>(providerObj);
+        if (provider == nullptr || provider->AllProperties == nullptr) return;
+
+        if (!m_providers->Contains(provider)) {
             m_providers->Add(provider);
 
-            // Перебираем новые объекты метаданных PropertyMeta
-            for each (KeyValuePair<System::String^, PropertyMeta^> ^ pair in provider->AllProperties)
-            {
-                PropertyMeta^ meta = pair->Value;
+            // Читаем коллекцию ключей метаданных, которую нам передал C# модуль
+            System::Collections::Generic::Dictionary<System::String^, PropertyMeta^>::KeyCollection^ keys = provider->AllProperties->Keys;
 
-                // Проверяем флаг включения свойства (актуально для вашего будущего окна выбора)
-                if (meta != nullptr && meta->IsEnabled == true)
+            for each (System::String ^ key in keys)
+            {
+                PropertyMeta^ meta = provider->AllProperties[key];
+
+                if (meta != nullptr && meta->IsEnabled)
                 {
-                    // 🚀 МОЩНЫЙ СИНХРОННЫЙ ВЫЗОВ: Передаем имя, уникальное описание и тип из C# в COM!
+                    // 🚀 Динамическая регистрация! В контексте открытого документа 
+                    // AutoCAD примет её идеально и без вылетов RPC!
                     ArxBridgeCore::RegisterDynamicProperty(meta->Name, meta->Description, meta->PropType);
                 }
             }
         }
+    }
+
+    void BridgeManager::RegisterProviderTest() {
+        // Поставьте точку останова СЮДА!
+        ArxBridgeCore::RegisterDynamicProperty(L"Тест", L"Описание", PropType::IsDouble);
     }
 
     void BridgeManager::ExecuteBatchUpdate(List<SelectedObjectData^>^ nonActualData) {

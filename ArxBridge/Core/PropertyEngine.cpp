@@ -352,4 +352,13 @@ namespace ArxBridge {
         }
     }
 
+    bool PropertyEngine::GetPropertyType(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, PropType& outType) {
+        Property^ prop = FindPropertyInCache(id, propName);
+        if (prop != nullptr) {
+            outType = prop->PropType;
+            return true;
+        }
+        return false;
+    }
+
 } // namespace ArxBridge

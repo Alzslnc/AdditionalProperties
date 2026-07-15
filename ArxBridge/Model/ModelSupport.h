@@ -1,4 +1,3 @@
-// Model/PropType.h
 #pragma once
 
 namespace ArxBridge {

@@ -43,5 +43,7 @@ namespace ArxBridge {
         static bool SetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, const std::wstring& newValue);
 
         static bool HasProperty(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName);
+
+        static bool GetPropertyType(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, PropType& outType);
     };
 }

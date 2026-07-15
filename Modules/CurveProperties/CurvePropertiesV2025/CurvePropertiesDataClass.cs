@@ -58,15 +58,15 @@ namespace CurveProperties
                         }
                     }
 
-                    if (AllProperties["Угол"].IsEnabled) o.Properties.Add(new Property("Угол", angle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
-                    if (AllProperties["Вертикальный угол"].IsEnabled) o.Properties.Add(new Property("Вертикальный угол", vAngle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
+                    if (AllProperties["Угол"].IsEnabled) o.Properties.Add(new Property("Угол", AllProperties["Угол"].Description, angle.ToString(CultureInfo.InvariantCulture), false, AllProperties["Угол"].PropType, this) { Group = "Параметры",  });
+                    if (AllProperties["Вертикальный угол"].IsEnabled) o.Properties.Add(new Property(AllProperties["Вертикальный угол"], vAngle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
                 }
 
                 // Расчет длины (Убрали дублирующийся if)
                 if (AllProperties["Длина (сумма)"].IsEnabled)
                 {
                     double length = curve.GetLength();
-                    o.Properties.Add(new Property("Длина (сумма)", length.ToString(CultureInfo.InvariantCulture), true, this) { Group = "Геометрия", IsSum = true });
+                    o.Properties.Add(new Property(AllProperties["Длина (сумма)"], length.ToString(CultureInfo.InvariantCulture), true, this) { Group = "Геометрия", IsSum = true });
                 }
 
                 // Расчет площади (Защита от разомкнутых кривых, не имеющих площади)
@@ -85,7 +85,7 @@ namespace CurveProperties
 
                     string areaStr = area.ToString(CultureInfo.InvariantCulture);
                                       
-                    if (AllProperties["Площадь (сумма)"].IsEnabled) o.Properties.Add(new Property("Площадь (сумма)", areaStr, true, this) { Group = "Геометрия", IsSum = true, Error = error });
+                    if (AllProperties["Площадь (сумма)"].IsEnabled) o.Properties.Add(new Property(AllProperties["Площадь (сумма)"], areaStr, true, this) { Group = "Геометрия", IsSum = true, Error = error });
                 }
             }
         }

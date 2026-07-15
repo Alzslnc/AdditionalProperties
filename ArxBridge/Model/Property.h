@@ -48,7 +48,7 @@ namespace ArxBridge {
     public:
         // --- Конструкторы класса (Только объявления) ---
         Property();
-        Property(String^ name, String^ value, bool isReadOnly, SelectedDataClass^ parent);
+        Property(String^ name, String^ description, String^ value, bool isReadOnly, ArxBridge::PropType propType, SelectedDataClass^ parent);
 
         // --- Методы жизненного цикла и сравнения ---
         bool IsEqual(Property^ property);

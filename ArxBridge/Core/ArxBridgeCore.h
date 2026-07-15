@@ -23,7 +23,7 @@ namespace ArxBridge {
     internal:
         // Указатель на нативный вектор зарегистрированных COM-свойств
         static std::vector<IUnknown*>* m_registeredProperties;
-
+        static std::vector<AcDbObjectId>* m_frameSelectedIds;
         // Переменная текущего состояния конечного автомата
         static BridgeState m_currentState;
 

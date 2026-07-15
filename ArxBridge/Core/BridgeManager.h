@@ -16,9 +16,10 @@ namespace ArxBridge {
     public:
         // Инициализация статических компонентов менеджера при старте
         static void Initialize();
-
+        static void Terminate();
         // Метод регистрации C# наследников
-        static void RegisterProvider(SelectedDataClass^ provider);
+        static void RegisterProvider(System::Object^ providerObj);
+        static void RegisterProviderTest();
 
         // Пакетный обновитель параметров долгоживущего кэша (Void-вариант)
         static void ExecuteBatchUpdate(
