@@ -1,5 +1,5 @@
 #pragma once
-#include "dbid.h" // Обязательный заголовок AutoCAD для AcDbObjectId
+//#include "dbid.h" // Обязательный заголовок AutoCAD для AcDbObjectId
 
 namespace ArxBridge {
 

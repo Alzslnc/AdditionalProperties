@@ -1,11 +1,16 @@
+#define _SERVPROV_H_ 
+
 #include "aced.h"      // Для acedSSGet, acedSSLength, acedSSFree
 #include "dbid.h"      // Для AcDbObjectId
 #include "dbapserv.h"  // Для acdbHostApplicationServices
+#include <sstream>
+#include <iomanip>
 
 #include "PropertyEngine.h"
 #include "BridgeManager.h"
 #include "../Model/Property.h"
-#include "../Core/ArxBridgeCore.h"
+
+
 
 using namespace System;
 using namespace System::Collections::Generic;
@@ -298,37 +303,31 @@ namespace ArxBridge {
 
     bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, std::wstring& outValue) {
 
-        // 1. Проверяем, множественный ли выбор сейчас на палитре
-        bool isMultiSelection = (ArxBridgeCore::m_frameSelectedIds != nullptr && ArxBridgeCore::m_frameSelectedIds->size() > 1);
-
-        // 🧮 2. ЕСЛИ МНОЖЕСТВЕННЫЙ ВЫБОР: Выдаем агрегированные суммы КМ/КЖ
-        if (isMultiSelection) {
-            // Ищем в double-сумматорах
-            auto itDouble = AggregatedDoubles.find(propName);
-            if (itDouble != AggregatedDoubles.end()) {
-                int displayPrecision = 6; // Дефолт
-                Property^ propInCache = FindPropertyInCache(id, propName);
-                if (propInCache != nullptr && propInCache->Parent != nullptr) {
-                    displayPrecision = propInCache->Parent->Precision;
-                }
-
-                std::wstringstream wss;
-                wss << std::fixed << std::setprecision(displayPrecision) << itDouble->second;
-                outValue = wss.str();
-
-                if (displayPrecision > 0) {
-                    outValue.erase(outValue.find_last_not_of(L'0') + 1, std::wstring::npos);
-                    if (outValue.back() == L'.') outValue.pop_back();
-                }
-                return true;
+        // Ищем в double-сумматорах
+        auto itDouble = AggregatedDoubles.find(propName);
+        if (itDouble != AggregatedDoubles.end()) {
+            int displayPrecision = 6; // Дефолт
+            Property^ propInCache = FindPropertyInCache(id, propName);
+            if (propInCache != nullptr && propInCache->Parent != nullptr) {
+                displayPrecision = propInCache->Parent->Precision;
             }
 
-            // Ищем в int-сумматорах (для штук, количеств)
-            auto itInt = AggregatedInts.find(propName);
-            if (itInt != AggregatedInts.end()) {
-                outValue = std::to_wstring(itInt->second);
-                return true;
+            std::wstringstream wss;
+            wss << std::fixed << std::setprecision(displayPrecision) << itDouble->second;
+            outValue = wss.str();
+
+            if (displayPrecision > 0) {
+                outValue.erase(outValue.find_last_not_of(L'0') + 1, std::wstring::npos);
+                if (outValue.back() == L'.') outValue.pop_back();
             }
+            return true;
+        }
+
+        // Ищем в int-сумматорах (для штук, количеств)
+        auto itInt = AggregatedInts.find(propName);
+        if (itInt != AggregatedInts.end()) {
+            outValue = std::to_wstring(itInt->second);
+            return true;
         }
 
         // 🏢 3. ЕСЛИ ОДИНОЧНЫЙ ВЫБОР (или обычное текстовое свойство вроде Марки):
@@ -437,9 +436,7 @@ namespace ArxBridge {
 
         // Если пользователь действительно что-то поменял — отправляем пакет на запись!
         if (changedList->Count > 0) {
-            BridgeManager::ExecuteBatchSync(changedList, true); // true = запись + мгновенное чтение на месте
-            AggregatedDoubles.clear();
-            AggregatedInts.clear();
+            BridgeManager::ExecuteBatchSync(changedList, true); // true = запись + мгновенное чтение на месте        
         }
     }
 

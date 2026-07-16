@@ -1,9 +1,9 @@
 // 1. Защита интерфейса IServiceProvider (должна быть на самом верху)
 #define IServiceProvider WINIServiceProvider
+#define _SERVPROV_H_ 
 
 // 2. Логика вашего проекта (использует базовые типы)
 #include "Core/PropertyEngine.h"
-#include "Model/SelectedObjectData.h"
 
 // 3. Импорт ActiveX (должен идти до некоторых заголовков AutoCAD, чтобы не было конфликтов имен)
 #pragma warning(push)

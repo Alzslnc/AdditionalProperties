@@ -7,6 +7,7 @@
 
 #include "../Model/SelectedObjectData.h"
 #include "../Model/Property.h" // Подключаем, так как FindPropertyInCache возвращает тип Property^
+#include "../Model/SelectedDataClass.h"
 
 namespace ArxBridge {
 
