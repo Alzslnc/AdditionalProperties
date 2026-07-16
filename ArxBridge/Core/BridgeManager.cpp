@@ -6,34 +6,34 @@
 #include "../Core/ArxBridgeCore.h"
 
 using namespace System;
-using namespace System::Collections::Generic;
 using namespace Autodesk::AutoCAD::DatabaseServices;
+using namespace System::Collections::Generic;
 
 namespace ArxBridge {
 
     void BridgeManager::Initialize() {
-        if (m_providers == nullptr) {       
+        if (m_providers == nullptr) {
             m_providers = gcnew List<SelectedDataClass^>();
         }
     }
-    void BridgeManager::Terminate() {      
+
+    void BridgeManager::Terminate() {
         if (m_providers != nullptr) {
             m_providers->Clear();
-            m_providers = nullptr; // Возвращаем в исходный nullptr для следующего цикла
+            m_providers = nullptr;
         }
     }
+
     void BridgeManager::RegisterProvider(System::Object^ providerObj) {
         if (providerObj == nullptr || m_providers == nullptr) return;
 
-        // Безопасное приведение типов внутри С++
         SelectedDataClass^ provider = dynamic_cast<SelectedDataClass^>(providerObj);
         if (provider == nullptr || provider->AllProperties == nullptr) return;
 
         if (!m_providers->Contains(provider)) {
             m_providers->Add(provider);
 
-            // Читаем коллекцию ключей метаданных, которую нам передал C# модуль
-            System::Collections::Generic::Dictionary<System::String^, PropertyMeta^>::KeyCollection^ keys = provider->AllProperties->Keys;
+            Dictionary<System::String^, PropertyMeta^>::KeyCollection^ keys = provider->AllProperties->Keys;
 
             for each (System::String ^ key in keys)
             {
@@ -41,92 +41,122 @@ namespace ArxBridge {
 
                 if (meta != nullptr && meta->IsEnabled)
                 {
-                    // 🚀 Динамическая регистрация! В контексте открытого документа 
-                    // AutoCAD примет её идеально и без вылетов RPC!
-                    ArxBridgeCore::RegisterDynamicProperty(meta->Name, meta->Description, meta->PropType);
+                    List<System::String^>^ nativeClassNames = gcnew List<System::String^>();
+
+                    for each (System::Type ^ managedType in meta->Types)
+                    {
+                        if (managedType == nullptr) continue;
+
+                        try {
+                            Autodesk::AutoCAD::Runtime::RXClass^ rxClass =
+                                Autodesk::AutoCAD::Runtime::RXClass::GetClass(managedType);
+
+                            if (rxClass != nullptr && !System::String::IsNullOrEmpty(rxClass->Name))
+                            {
+                                nativeClassNames->Add(rxClass->Name);
+                            }
+                        }
+                        catch (System::Exception^ ex) {
+                            System::Diagnostics::Debug::WriteLine("Ошибка маршалинга RXClass: " + ex->Message);
+                        }
+                    }
+
+                    if (nativeClassNames->Count > 0) {
+                        ArxBridgeCore::RegisterDynamicPropertyForClasses(
+                            meta->Name,
+                            meta->Description,
+                            meta->PropType,
+                            nativeClassNames
+                        );
+                    }
                 }
             }
         }
     }
 
-    void BridgeManager::RegisterProviderTest() {
-        // Поставьте точку останова СЮДА!
-        ArxBridgeCore::RegisterDynamicProperty(L"Тест", L"Описание", PropType::IsDouble);
-    }
-
-    void BridgeManager::ExecuteBatchUpdate(List<SelectedObjectData^>^ nonActualData) {
-        if (nonActualData == nullptr || nonActualData->Count == 0 || m_providers == nullptr) {
+    // 🚀 ЕДИНЫЙ ВЫСОКОСКОРОСТНОЙ КОНВЕЙЕР СИНХРОНИЗАЦИИ ДАННЫХ
+    // (Покрывает и Фазу Чтения, и Фазу Записи на месте без дублирования)
+    void BridgeManager::ExecuteBatchSync(List<SelectedObjectData^>^ objectsData, bool isWriteMode) {
+        if (objectsData == nullptr || objectsData->Count == 0 || m_providers == nullptr) {
             return;
         }
 
-        Database^ db = HostApplicationServices::WorkingDatabase;
-        if (db == nullptr) return;
+        Autodesk::AutoCAD::ApplicationServices::Document^ doc =
+            Autodesk::AutoCAD::ApplicationServices::Application::DocumentManager->MdiActiveDocument;
+        if (doc == nullptr) return;
 
-        Transaction^ tr = db->TransactionManager->StartTransaction();
+        // 🚀 ИСПРАВЛЕНО: Явный указатель с крышечкой для безопасного деструктурирования
+        Autodesk::AutoCAD::ApplicationServices::DocumentLock^ docLock = doc->LockDocument();
+
         try {
-            for (int i = 0; i < nonActualData->Count; ++i) {
-                SelectedObjectData^ objectData = nonActualData[i];
-                if (objectData == nullptr) continue;
+            Database^ db = doc->Database;
+            if (db == nullptr) return;
 
-                ObjectId id = objectData->ObjectId;
-                if (!id.IsValid) continue;
+            Transaction^ tr = db->TransactionManager->StartTransaction();
+            try {
+                for (int i = 0; i < objectsData->Count; ++i) {
+                    SelectedObjectData^ objectData = objectsData[i];
+                    if (objectData == nullptr) continue;
 
-                Entity^ entity = dynamic_cast<Entity^>(tr->GetObject(id, OpenMode::ForRead, false, true));
-                if (entity == nullptr) continue;
+                    ObjectId id = objectData->ObjectId;
+                    if (!id.IsValid) continue;
 
-                objectData->ClassName = entity->GetType()->Name;
-                objectData->IsModified = false;
+                    // Если идет фиксация изменений — запрашиваем ForWrite, иначе — ForRead
+                    OpenMode mode = isWriteMode ? OpenMode::ForWrite : OpenMode::ForRead;
 
-                for each (SelectedDataClass ^ provider in m_providers) {
-                    try {
-                        provider->GetProperties(entity, objectData);
+                    Entity^ entity = dynamic_cast<Entity^>(tr->GetObject(id, mode, false, true));
+                    if (entity == nullptr) continue;
+
+                    // 📥 ТАКТ 1. ЗАПИСЬ (Срабатывает только в режиме фиксации изменений)
+                    if (isWriteMode && objectData->IsChanged) {
+                        for each (SelectedDataClass ^ provider in m_providers) {
+                            if (provider != nullptr) {
+                                try { provider->SetProperties(entity, objectData->Properties); }
+                                catch (...) {}
+                            }
+                        }
                     }
-                    catch (...) {}
+
+                    // Системный паспорт типа объекта (всегда актуализируем при проходе)
+                    objectData->ClassName = entity->GetType()->Name;
+                    objectData->IsModified = false;
+
+                    // 📤 ТАКТ 2. ЧТЕНИЕ ПО ГОРЯЧИМ СЛЕДАМ (Перечитываем честную точность геометрии из БД)
+                    for each (SelectedDataClass ^ provider in m_providers) {
+                        if (provider != nullptr) {
+                            try 
+                            { 
+                                provider->PreAcadUpdateAction();
+                                provider->GetProperties(entity, objectData); 
+                            }
+                            catch (...) {}
+                        }
+                    }
+
+                    // 🧹 ТАКТ 3. СБРОС ФЛАГОВ ИЗМЕНЕНИЙ (После успешного перечитывания зануляем NewValue)
+                    if (isWriteMode && objectData->Properties != nullptr) {
+                        for (int j = 0; j < objectData->Properties->Count; ++j) {
+                            if (objectData->Properties[j] != nullptr) {
+                                objectData->Properties[j]->NewValue = nullptr; // IsChanged автоматически станет false
+                            }
+                        }
+                    }
                 }
+                tr->Commit();
             }
-            tr->Commit();
+            catch (System::Exception^ ex) {
+                System::Diagnostics::Debug::WriteLine("Сбой конвейера синхронизации OPM: " + ex->Message);
+                tr->Abort();
+            }
+            finally {
+                delete tr; // Уничтожаем транзакцию CLR
+            }
         }
-        catch (...) {   
+        finally {
+            // 🚀 БЕЗОПАСНЫЙ СБРОС БЛОКИРОВКИ ДОКУМЕНТА
+            if (docLock != nullptr) {
+                delete docLock;
+            }
         }
     }
-
-    void BridgeManager::ExecuteBatchWrite(List<SelectedObjectData^>^ changedData) {
-        if (changedData == nullptr || changedData->Count == 0 || m_providers == nullptr) {
-            return;
-        }
-
-        Database^ db = HostApplicationServices::WorkingDatabase;
-        if (db == nullptr) return;
-
-        Transaction^ tr = db->TransactionManager->StartTransaction();
-        try {
-            for (int i = 0; i < changedData->Count; ++i) {
-                SelectedObjectData^ objectData = changedData[i];             
-                             
-                if (objectData == nullptr || !objectData->IsChanged) continue;
-
-                ObjectId id = objectData->ObjectId;
-                if (!id.IsValid) continue;
-
-                // 2. 🚀 ВАЖНО: Открываем объект из базы данных AutoCAD строго НА ЗАПИСЬ (ForWrite)
-                Entity^ entity = dynamic_cast<Entity^>(tr->GetObject(id, OpenMode::ForWrite, false, true));
-                if (entity == nullptr) continue;
-
-                // 3. Передаем объект C# провайдерам для применения геометрии
-                for each(SelectedDataClass ^ provider in m_providers) {
-                    try {
-                        provider->SetProperties(entity, objectData->Properties);
-                    }
-                    catch (...) {}
-                }
-            }
-            // Фиксируем пакет изменений на чертеже
-            tr->Commit();
-        }
-        catch (...) {
-            // В случае сбоя транзакция автоматически сбросится (Abort)
-        }
-    }
-
-
 }

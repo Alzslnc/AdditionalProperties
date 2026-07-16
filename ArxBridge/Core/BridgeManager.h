@@ -7,26 +7,28 @@ namespace ArxBridge {
     ref class SelectedDataClass;
     ref class SelectedObjectData;
 
-    // 2. Теперь BridgeManager тоже находится внутри пространства имен ArxBridge
+    // 2. Менеджер конвейера синхронизации данных моста
     public ref class BridgeManager {
     private:
-        // Больше не нужно писать ArxBridge:: перед типами, они находятся в той же "коробке"
+        // Хранилище зарегистрированных C# провайдеров
         static System::Collections::Generic::List<SelectedDataClass^>^ m_providers;
 
     public:
-        // Инициализация статических компонентов менеджера при старте
+        // Инициализация статических компонентов менеджера при старте/выгрузке
         static void Initialize();
         static void Terminate();
-        // Метод регистрации C# наследников
+
+        // Метод точечной регистрации C# наследников
         static void RegisterProvider(System::Object^ providerObj);
-        static void RegisterProviderTest();
 
-        // Пакетный обновитель параметров долгоживущего кэша (Void-вариант)
-        static void ExecuteBatchUpdate(
-            System::Collections::Generic::List<SelectedObjectData^>^ nonActualData            
+        // 🚀 ЕДИНЫЙ КОНВЕЙЕР СИНХРОНИЗАЦИИ (Запись + Чтение на месте за один проход)
+        // Заменяет собой два старых метода Update и Write.
+        // isWriteMode = false: Режим чистого чтения геометрии из чертежа в .NET кэш.
+        // isWriteMode = true: Режим фиксации изменений из .NET кэша в чертеж с мгновенным перечитыванием.
+        static void ExecuteBatchSync(
+            System::Collections::Generic::List<SelectedObjectData^>^ objectsData,
+            bool isWriteMode
         );
-
-        static void ExecuteBatchWrite(System::Collections::Generic::List<SelectedObjectData^>^ changedData);
     };
 
 }

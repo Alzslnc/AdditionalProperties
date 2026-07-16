@@ -18,10 +18,10 @@ namespace CurveProperties
             // Переводим AllProperties на новый класс метаданных!
             AllProperties = new Dictionary<string, PropertyMeta>
             {
-                { "Угол", new PropertyMeta("Угол", "Угол наклона кривой в плоскости X-Y", PropType.IsDouble) },
-                { "Вертикальный угол", new PropertyMeta("Вертикальный угол", "Угол наклона кривой относительно плоскости X-Y", PropType.IsDouble) },
-                { "Длина (сумма)", new PropertyMeta("Длина (сумма)", "Суммарная длина всех выделенных кривых", PropType.IsDouble) },
-                { "Площадь (сумма)", new PropertyMeta("Площадь (сумма)", "Суммарная площадь замкнутых контуров", PropType.IsDouble) },
+                { "Угол", new PropertyMeta("Угол", "Угол наклона кривой в плоскости X-Y", PropType.IsDouble) { Types = new List<Type>{ typeof(Line) } } },
+                { "Вертикальный угол", new PropertyMeta("Вертикальный угол", "Угол наклона кривой относительно плоскости X-Y", PropType.IsDouble, isEnabled : false){ Types = new List<Type>{ typeof(Line) } } },
+                { "Длина (сумма)", new PropertyMeta("Длина (сумма)", "Суммарная длина всех выделенных кривых", PropType.IsDouble) { Types = new List<Type>{ typeof(Curve) } } },
+                { "Площадь (сумма)", new PropertyMeta("Площадь (сумма)", "Суммарная площадь замкнутых контуров", PropType.IsDouble, isEnabled : false) { Types = new List<Type>{ typeof(Curve) } }  },
             };
         }
 
@@ -58,7 +58,7 @@ namespace CurveProperties
                         }
                     }
 
-                    if (AllProperties["Угол"].IsEnabled) o.Properties.Add(new Property("Угол", AllProperties["Угол"].Description, angle.ToString(CultureInfo.InvariantCulture), false, AllProperties["Угол"].PropType, this) { Group = "Параметры",  });
+                    if (AllProperties["Угол"].IsEnabled) o.Properties.Add(new Property(AllProperties["Угол"], angle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры",  });
                     if (AllProperties["Вертикальный угол"].IsEnabled) o.Properties.Add(new Property(AllProperties["Вертикальный угол"], vAngle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
                 }
 

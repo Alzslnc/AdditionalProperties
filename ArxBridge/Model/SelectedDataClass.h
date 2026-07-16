@@ -11,8 +11,6 @@ using namespace Autodesk::AutoCAD::DatabaseServices;
 
 namespace ArxBridge {
 
-
-
     // Добавляем опережающие объявления для ОБОИХ классов:
     ref class Property;
     ref class UnitedProperty;

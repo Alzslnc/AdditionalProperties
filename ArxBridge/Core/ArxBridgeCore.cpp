@@ -94,9 +94,22 @@ namespace ArxBridge {
             return S_OK;
         }
 
+        // 1. ТОЧКА СБРОСА КАДРА И ОЧИСТКИ ФИЛЬТРА ТИПОВ
         STDMETHODIMP GetDisplayName(BSTR* pBSTRName) override {
             if (!pBSTRName) return E_POINTER;
             *pBSTRName = ::SysAllocString(m_nativePropName.c_str());
+
+            // 🚀 ИСПРАВЛЕНО: Сброс и векторов, и автомата происходит строго 1 раз за кадр — 
+            // в момент перехода из Locked/Write в состояние готовности нового кадра Read!
+            if (ArxBridgeCore::GetState() != BridgeState::Read) {
+
+                if (ArxBridgeCore::m_frameSelectedIds != nullptr) {
+                    ArxBridgeCore::m_frameSelectedIds->clear(); // Очищаем старые типы-маркеры
+                }
+
+                ArxBridgeCore::SetState(BridgeState::Read); // Открываем ворота
+            }
+
             return S_OK;
         }
 
@@ -125,22 +138,22 @@ namespace ArxBridge {
 
         STDMETHODIMP GetDescription(BSTR* pBSTRDescription) override {
             if (!pBSTRDescription) return E_POINTER;
-            *pBSTRDescription = ::SysAllocString(L"Custom Property");
+            *pBSTRDescription = ::SysAllocString(m_nativeDescription.c_str());
             return S_OK;
         }
 
+        // 2. МИКРО-НАКОПИТЕЛЬ АКТУАЛЬНЫХ ТИПОВ ФИЛЬТРА ПАНЕЛИ
         STDMETHODIMP IsPropertyEnabled(IUnknown* pUnk, BOOL* pbEnabled) override {
             if (!pbEnabled || !pUnk) return E_POINTER;
-
-            // 🚀 РЕШЕНИЕ: Всегда разрешаем, давая палитре скормить нам pUnk объектов.
-            // Реальную фильтрацию ячеек сделает C# на этапе чтения данных!
-            *pbEnabled = TRUE;
+            *pbEnabled = TRUE; // Нативная регистрация по AcRxClass уже отсекла чужие классы сущностей
 
             AcDbObjectId nativeId = GetObjectIdFromIUnknown(pUnk);
             if (nativeId.isValid() && nativeId.database() != nullptr) {
 
-                // Накапливаем точный список ID только во время фазы ожидания чтения
-                if (ArxBridgeCore::GetState() == BridgeState::Read) {
+                // 🎯 НАКОПЛЕНИЕ КЛАССОВ ФИЛЬТРА (Фаза 1 метаданных, статус гарантированно Read):
+                if (ArxBridgeCore::GetState() == BridgeState::Read && ArxBridgeCore::m_frameSelectedIds != nullptr) {
+
+                    // Сохраняем по одному первому ID для каждого класса объектов, который пропустил фильтр панели!
                     if (std::find(ArxBridgeCore::m_frameSelectedIds->begin(), ArxBridgeCore::m_frameSelectedIds->end(), nativeId) == ArxBridgeCore::m_frameSelectedIds->end()) {
                         ArxBridgeCore::m_frameSelectedIds->push_back(nativeId);
                     }
@@ -148,9 +161,6 @@ namespace ArxBridge {
             }
             return S_OK;
         }
-
-
-
 
         STDMETHODIMP GetCurrentValueName(BSTR* pbstrName) override {
             if (!pbstrName) return E_POINTER;
@@ -188,24 +198,44 @@ namespace ArxBridge {
                     }
                 }
             }
+            //работаем через строку
+            *pVarType = VT_BSTR;
             return S_OK;
         }
 
+        // 3. ПАКЕТНЫЙ ЗАПУСК ДЛЯ ЖИВОЙ ПАНЕЛИ СВОЙСТВ
         STDMETHODIMP Connect(IDynamicPropertyNotify2* pSink) override {
             if (pSink == nullptr) return E_POINTER;
-            m_pNotifySink = pSink; // Сохраняем "трубу" уведомлений
+            m_pNotifySink = pSink;
+            m_pNotifySink->AddRef(); // Удерживаем COM-ссылку от случайного удаления из ОЗУ
+
+            // 🚀 СТАРТ ТРАНЗАКЦИИ КАДРА: Сработает строго 1 раз для первого свойства палитры!
+            if (ArxBridgeCore::GetState() == BridgeState::Read) {
+                ArxBridgeCore::SetState(BridgeState::Locked);
+
+                // Передаем наш накопленный вектор-фильтр типов в оркестратор .NET.
+                // Вектор пуст не будет, там уже лежат эталонные ID отфильтрованных на палитре классов!
+                if (ArxBridgeCore::m_frameSelectedIds != nullptr) {
+                    PropertyEngine::PrepareInitialSelectionContext(*ArxBridgeCore::m_frameSelectedIds);
+                }
+            }
             return S_OK;
         }
 
-
-
+        // 5. БЕЗОПАСНЫЙ СБРОС И РАЗОРУЖЕНИЕ СЕССИИ СВЯЗИ
         STDMETHODIMP Disconnect() override {
-            m_pNotifySink = nullptr;
-            // При полной расфокусировке палитры возвращаем автомат в исходное чтение
+            if (m_pNotifySink != nullptr) {
+                m_pNotifySink->Release(); // Честно возвращаем COM-ссылку AutoCAD
+                m_pNotifySink = nullptr;
+            }
+            if (ArxBridgeCore::m_frameSelectedIds != nullptr) {
+                ArxBridgeCore::m_frameSelectedIds->clear();
+            }
             ArxBridgeCore::SetState(BridgeState::Read);
             return S_OK;
         }
 
+        // 4. ВЫДАЧА СТРОК ЗНАЧЕНИЙ + ЛЕНИВЫЙ СПАСИТЕЛЬ ТУЛТИПОВ + АВТО-ОБНОВЛЕНИЕ UI
         STDMETHODIMP GetCurrentValueData(IUnknown* pUnk, VARIANT* pVarData) override {
             if (pVarData == nullptr || pUnk == nullptr) return E_POINTER;
             ::VariantInit(pVarData);
@@ -215,34 +245,36 @@ namespace ArxBridge {
                 m_currentId = nativeId;
                 BridgeState currentState = ArxBridgeCore::GetState();
 
-                // 1. ФАЗА ЗАПИСИ: применили изменения и сбросили автомат в Read
+                // 🏢 ФАЗА ПАКЕТНОЙ ЗАПИСИ (Пользователь изменил ячейку и нажал Enter)
                 if (currentState == BridgeState::Write) {
-                    ArxBridgeCore::SetState(BridgeState::Connect);
+                    ArxBridgeCore::SetState(BridgeState::Locked);
+
+                    // Коммит под DocumentLock и быстрой транзакцией .NET
                     PropertyEngine::CommitSelectionChanges(nativeId.database());
                     ArxBridgeCore::SetState(BridgeState::Read);
-                    ArxBridgeCore::m_frameSelectedIds->clear(); // Очищаем для нового кадра
+
+                    // 🚀 Мгновенный пинок для интерфейса AutoCAD!
+                    // Оповещаем палитру, что параметры изменились, убирая ручной перевыбор объектов
+                    if (m_pNotifySink != nullptr) {
+                        m_pNotifySink->OnChanged(static_cast<IDynamicProperty2*>(this));
+                    }
                 }
 
-                // 2. ФАЗА ЧТЕНИЯ: сработает строго ОДИН РАЗ на первом объекте в кадре!
+                // 🚀 ФАЗА ТУЛТИПОВ (Если Connect был полностью пропущен и статус остался Read)
                 if (ArxBridgeCore::GetState() == BridgeState::Read) {
+                    ArxBridgeCore::SetState(BridgeState::Locked);
 
-                    // 🚀 ТОЧЕЧНО: Отдаем в C# уже полностью готовый, собранный в IsEnabled массив ID
-                    if (ArxBridgeCore::m_frameSelectedIds != nullptr && !ArxBridgeCore::m_frameSelectedIds->empty()) {
-                        PropertyEngine::PrepareSelectionContext(nativeId.database(), *ArxBridgeCore::m_frameSelectedIds);
-                    }
-                    else {
-                        PropertyEngine::PrepareSelectionContext(nativeId.database(), { nativeId });
-                    }
-
-                    // Жестко запираем замок кадра. Остальные свойства и объекты просто читают готовый кэш
-                    ArxBridgeCore::SetState(BridgeState::Connect);
+                    // Передаем массив из ОДНОГО этого наведенного ID. 
+                    // Тултип прочитает одну линию под курсором за наносекунду, не трогая грязный экран.
+                    PropertyEngine::PrepareSelectionContext(nativeId.database(), { nativeId });
                 }
 
-                // Извлекаем строку из пакетного кэша
+                // 📤 ВЫДАЧА ГОТОВОГО ЗНАЧЕНИЯ ИЗ КЭША С#
                 std::wstring stringValue;
                 if (PropertyEngine::GetPropertyValue(nativeId.database(), nativeId, m_nativePropName, stringValue)) {
                     pVarData->vt = VT_BSTR;
                     pVarData->bstrVal = ::SysAllocString(stringValue.c_str());
+                                     
                     return S_OK;
                 }
             }
@@ -279,8 +311,14 @@ namespace ArxBridge {
 
     void ArxBridgeCore::Initialize() {
 
-        m_registeredProperties = new std::vector<IUnknown*>();
-        m_frameSelectedIds = new std::vector<AcDbObjectId>();
+        if (m_registeredProperties == nullptr)
+        {
+            m_registeredProperties = new std::vector<IUnknown*>();
+        }
+        if (m_frameSelectedIds == nullptr)
+        {
+            m_frameSelectedIds = new std::vector<AcDbObjectId>();
+        }
         m_currentState = BridgeState::Read; // Изначально выставляем Read       
     }
 
@@ -302,7 +340,60 @@ namespace ArxBridge {
     BridgeState ArxBridgeCore::GetState() {
         return m_currentState;
     }
+    void ArxBridgeCore::RegisterDynamicPropertyForClasses(
+        System::String^ propertyName,
+        System::String^ description,
+        PropType type,
+        System::Collections::Generic::List<System::String^>^ targetClasses)
+    {
+        // Защита от пустых данных
+        if (System::String::IsNullOrEmpty(propertyName) || targetClasses == nullptr || targetClasses->Count == 0) return;
 
+        // Получаем доступ к глобальному менеджеру динамических свойств палитры AutoCAD
+        // Регистрируем менеджер на базовый класс сущностей AcDbEntity, чтобы он открыл OPM-контекст
+        IPropertyManager2* pPropMan = (IPropertyManager2*)GET_OPMPROPERTY_MANAGER(AcDbEntity::desc());
+        if (pPropMan == nullptr) return;
+
+        // Перебираем имена классов (например: "AcDbLine", "AcDbPolyline"), прилетевшие из метаданных C#
+        for each (System::String ^ managedClassName in targetClasses)
+        {
+            if (System::String::IsNullOrEmpty(managedClassName)) continue;
+
+            // Переводим управляемую строку .NET в нативный указатель wchar_t*
+            IntPtr ipClass = System::Runtime::InteropServices::Marshal::StringToHGlobalUni(managedClassName);
+            const wchar_t* nativeClassName = static_cast<const wchar_t*>(ipClass.ToPointer());
+
+            // 🎯 МАГИЯ ObjectARX: Ищем нативный дескриптор класса AutoCAD по его точному текстовому имени!
+            // Из строки "AcDbLine" получаем жесткий внутренний указатель на AcDbLine::desc() [2]
+            AcRxClass* pTargetClass = nullptr;
+            if (acrxClassDictionary != nullptr) {
+                pTargetClass = AcRxClass::cast(acrxClassDictionary->at(nativeClassName));
+            }
+
+            // Обязательно освобождаем выделенную в куче Windows строку маршалинга
+            System::Runtime::InteropServices::Marshal::FreeHGlobal(ipClass);
+
+            // Если такой класс поддерживается текущей версией AutoCAD ядра [2]
+            if (pTargetClass != nullptr)
+            {
+                // Создаем экземпляр нашего COM-переводчика для этого свойства
+                DynamicPropertyBridge* pNewProperty = new DynamicPropertyBridge(propertyName, description, type);
+                IUnknown* pUnkProp = reinterpret_cast<IUnknown*>(pNewProperty);
+
+                // Увеличиваем счетчик ссылок COM, так как объект регистрируется в AutoCAD
+                pUnkProp->AddRef();
+
+                // 🚀 ТОЧЕЧНАЯ РЕГИСТРАЦИЯ: Привязываем свойство СТРОГО к этому конкретному классу примитивов!
+                // Теперь AutoCAD сам знает, кому показывать свойство, а кому нет [1]
+                IPropertyManager2* pTargetPropMan = (IPropertyManager2*)GET_OPMPROPERTY_MANAGER(pTargetClass);
+                if (pTargetPropMan != nullptr) {
+                    pTargetPropMan->AddProperty(pUnkProp);
+                }
+                // Сохраняем указатель в наш глобальный вектор для последующей корректной выгрузки
+                m_registeredProperties->push_back(pUnkProp);
+            }
+        }
+    }
     void ArxBridgeCore::RegisterDynamicProperty(System::String^ propertyName, System::String^ propertyDescription, ArxBridge::PropType propType)
     {
         if (System::String::IsNullOrEmpty(propertyName)) return;
