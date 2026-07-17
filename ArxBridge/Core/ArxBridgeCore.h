@@ -3,6 +3,10 @@
 #include <Unknwn.h> 
 #include "Model/ModelSupport.h"
 
+// 🚀 Опережающие объявления типов ObjectARX SDK.
+// Это изолирует заголовок от конфликтов с управляемым кодом .NET и устраняет ошибки типов.
+class AcDbObjectId;
+
 namespace ArxBridge {
 
     /// <summary>
@@ -39,9 +43,10 @@ namespace ArxBridge {
     public ref class ArxBridgeCore sealed
     {
     internal:
-        // Указатель на нативный вектор зарегистрированных COM-свойств
-        static std::vector<IUnknown*>* m_registeredProperties;
-        static std::vector<AcDbObjectId>* m_frameSelectedIds;
+        // Используем явный глобальный скоуп (::) для нативных векторов STL и ObjectARX
+        static std::vector<::IUnknown*>* m_registeredProperties;
+        static std::vector<::AcDbObjectId>* m_frameSelectedIds;
+
         // Переменная текущего состояния конечного автомата
         static BridgeState m_currentState;
 
@@ -61,7 +66,10 @@ namespace ArxBridge {
             PropType type,
             System::Collections::Generic::List<System::String^>^ targetClasses
         );
-        static void ArxBridgeCore::RegisterDynamicProperty(System::String^ propertyName, System::String^ propertyDescription, PropType propType);
+
+        // 🚀 СИНТАКСИЧЕСКАЯ ПРАВКА: Убран лишний внутренний префикс ArxBridgeCore:: из сигнатуры
+        static void RegisterDynamicProperty(System::String^ propertyName, System::String^ propertyDescription, PropType propType);
+
         static void UnregisterAllProperties();
     };
 }

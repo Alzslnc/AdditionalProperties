@@ -1,141 +1,91 @@
+#include <windows.h>
+#include <Unknwn.h>
+
+// 1. Подключаем оригинальные заголовочные файлы ObjectARX SDK
+#include "arxHeaders.h"
+#include <dynprops.h>
+
 #include "DynamicPropertyNativeBase.h"
 
-#pragma warning(push)
-#pragma warning(disable: 4278 4192)
-#define STRINGIFY(x) #x
-#define MACRO_TO_STRING(x) STRINGIFY(x)
-#import MACRO_TO_STRING(OARX_TLB) no_namespace rename("Delete", "AcadDelete") rename("Block", "AcadBlock")
-#pragma warning(pop)
+// Ручное объявление интерфейса категорий (так как в dynprops.h его нет)
+#ifndef ICategorizeProperties_DEFINED
+#define ICategorizeProperties_DEFINED
+interface __declspec(uuid("4D07FC10-F9D7-11ce-B196-00AA00B914D5")) ICategorizeProperties : public IUnknown
+{
+public:
+    virtual STDMETHODIMP MapPropertyToCategory(DISPID dispID, PROPCAT* ppropcat) = 0;
+    virtual STDMETHODIMP GetCategoryName(PROPCAT propcat, LCID lcid, BSTR* pbstrName) = 0;
+};
+#endif
 
-// 1. Конструктор по умолчанию (Зеркальное совпадение с .h)
-DynamicPropertyNativeBase::DynamicPropertyNativeBase()
-    : m_refCount(1), m_currentId(AcDbObjectId::kNull), m_nativePropName(L""), m_nativeDescription(L"")
-{}
+// 🚀 НАСТОЯЩАЯ МАТРЁШКА: Настоящий COM-класс. acpi.arx примет его структуру как родную!
+class RealCOMProperty : public ::IDynamicProperty2, public ::ICategorizeProperties
+{
+private:
+    DynamicPropertyNativeBase* m_pBridge;
 
-// 2. Параметризованный конструктор
-DynamicPropertyNativeBase::DynamicPropertyNativeBase(const wchar_t* name, const wchar_t* description)
-    : m_refCount(1), m_currentId(AcDbObjectId::kNull), m_nativePropName(name), m_nativeDescription(description)
-{}
+public:
+    RealCOMProperty(DynamicPropertyNativeBase* pBridge) : m_pBridge(pBridge) {}
 
-DynamicPropertyNativeBase::~DynamicPropertyNativeBase()
-{}
-
-AcDbObjectId DynamicPropertyNativeBase::GetObjectIdFromIUnknown(IUnknown* pUnk) {
-    AcDbObjectId id = AcDbObjectId::kNull;
-    if (!pUnk) return id;
-
-    IAcadObject* pAcadObj = nullptr;
-    if (SUCCEEDED(pUnk->QueryInterface(__uuidof(IAcadObject), (void**)&pAcadObj))) {
-        LONG_PTR rawId = 0;
-        if (SUCCEEDED(pAcadObj->get_ObjectID(&rawId)) && rawId != 0) {
-            id.setFromOldId(rawId);
+    // Реализация IUnknown
+    STDMETHODIMP QueryInterface(REFIID riid, void** ppvRaw) override {
+        if (!ppvRaw) return E_POINTER;
+        if (riid == __uuidof(::IUnknown) || riid == __uuidof(::IDynamicProperty2)) {
+            *ppvRaw = static_cast<::IDynamicProperty2*>(this);
+            m_pBridge->AddRef(); return S_OK;
         }
-        pAcadObj->Release();
+        if (riid == __uuidof(::ICategorizeProperties)) {
+            *ppvRaw = static_cast<::ICategorizeProperties*>(this);
+            m_pBridge->AddRef(); return S_OK;
+        }
+        return E_NOINTERFACE;
     }
-    return id;
-}
+    STDMETHODIMP_(ULONG) AddRef() override { return m_pBridge->AddRef(); }
+    STDMETHODIMP_(ULONG) Release() override { return m_pBridge->Release(); }
 
-// Ручной COM-оркестратор со статик-кастом на честные родительские интерфейсы
+    // Перенаправление вызовов палитры AutoCAD в виртуальные события моста
+    STDMETHODIMP GetGUID(GUID* pPropGUID) override { if (!pPropGUID) return E_POINTER; *pPropGUID = GUID_NULL; return S_OK; }
+    STDMETHODIMP GetDisplayName(BSTR* pBSTRName) override { m_pBridge->OnGetDisplayName(pBSTRName); return S_OK; }
+    STDMETHODIMP IsPropertyReadOnly(BOOL* bIsReadOnly) override { m_pBridge->OnIsPropertyReadOnly(bIsReadOnly); return S_OK; }
+    STDMETHODIMP GetDescription(BSTR* pBSTRDescription) override { m_pBridge->OnGetDescription(pBSTRDescription); return S_OK; }
+    STDMETHODIMP IsPropertyEnabled(::IUnknown* pUnk, BOOL* pbEnabled) override { m_pBridge->OnIsPropertyEnabled(pUnk, pbEnabled); return S_OK; }
+    STDMETHODIMP GetCurrentValueName(BSTR* pbstrName) override { if (!pbstrName) return E_POINTER; *pbstrName = nullptr; return S_OK; }
+    STDMETHODIMP GetCurrentValueType(VARTYPE* pVarType) override { m_pBridge->OnGetCurrentValueType(pVarType); return S_OK; }
+
+    // Connect на стыке принимает нативный IDynamicPropertyNotify2*, но мы пробрасываем его как IUnknown*
+    STDMETHODIMP Connect(::IDynamicPropertyNotify2* pSink) override { m_pBridge->OnConnect(static_cast<::IUnknown*>(pSink)); return S_OK; }
+
+    STDMETHODIMP Disconnect() override { m_pBridge->OnDisconnect(); return S_OK; }
+    STDMETHODIMP GetCurrentValueData(::IUnknown* pUnk, ::VARIANT* pVarData) override { m_pBridge->OnGetCurrentValueData(pUnk, pVarData); return S_OK; }
+    STDMETHODIMP SetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) override { return m_pBridge->OnSetCurrentValueData(pUnk, varData); }
+
+    // Реализация категорий палитры
+    STDMETHODIMP MapPropertyToCategory(DISPID dispID, PROPCAT* ppropcat) override { if (!ppropcat) return E_POINTER; *ppropcat = 1; return S_OK; }
+    STDMETHODIMP GetCategoryName(PROPCAT propcat, LCID lcid, BSTR* pbstrName) override {
+        if (!pbstrName) return E_POINTER;
+        if (propcat == 1) { m_pBridge->OnGetCategoryName(pbstrName); return S_OK; }
+        return E_NOTIMPL;
+    }
+};
+
+DynamicPropertyNativeBase::DynamicPropertyNativeBase() : m_refCount(1) {}
+DynamicPropertyNativeBase::~DynamicPropertyNativeBase() {}
+
+// Фабричный QueryInterface: выдает наружу честный RealCOMProperty
 STDMETHODIMP DynamicPropertyNativeBase::QueryInterface(REFIID riid, void** ppvRaw) {
     if (!ppvRaw) return E_POINTER;
-    *ppvRaw = nullptr;
 
-    if (riid == __uuidof(IUnknown) || riid.Data1 == 0x5F228E10) {
-        *ppvRaw = static_cast<IDynamicProperty2*>(this);
-        AddRef();
-        return S_OK;
+    RealCOMProperty* pRealProperty = new RealCOMProperty(this);
+    HRESULT hr = pRealProperty->QueryInterface(riid, ppvRaw);
+    if (FAILED(hr)) {
+        delete pRealProperty;
     }
-    else if (riid == __uuidof(ICategorizeProperties)) {
-        *ppvRaw = static_cast<ICategorizeProperties*>(this);
-        AddRef();
-        return S_OK;
-    }
-    return E_NOINTERFACE;
+    return hr; // Наружу уходит указатель на честный IDynamicProperty2!
 }
 
-STDMETHODIMP_(ULONG) DynamicPropertyNativeBase::AddRef() {
-    return InterlockedIncrement(&m_refCount);
-}
-
-STDMETHODIMP_(ULONG) DynamicPropertyNativeBase::Release() {
+ULONG __stdcall DynamicPropertyNativeBase::AddRef() { return InterlockedIncrement(&m_refCount); }
+ULONG __stdcall DynamicPropertyNativeBase::Release() {
     long res = InterlockedDecrement(&m_refCount);
     if (res == 0) delete this;
     return res;
-}
-
-// --- Методы IDynamicProperty2 (Без ключевого слова override!) ---
-
-STDMETHODIMP DynamicPropertyNativeBase::GetGUID(GUID* pPropGUID) {
-    if (!pPropGUID) return E_POINTER;
-    *pPropGUID = GUID_NULL;
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::GetDisplayName(BSTR* pBSTRName) {
-    this->OnGetDisplayName(pBSTRName);
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::IsPropertyReadOnly(BOOL* bIsReadOnly) {
-    this->OnIsPropertyReadOnly(bIsReadOnly);
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::GetDescription(BSTR* pBSTRDescription) {
-    if (!pBSTRDescription) return E_POINTER;
-    *pBSTRDescription = ::SysAllocString(this->m_nativeDescription.c_str());
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::IsPropertyEnabled(IUnknown* pUnk, BOOL* pbEnabled) {
-    this->OnIsPropertyEnabled(pUnk, pbEnabled);
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::GetCurrentValueName(BSTR* pbstrName) {
-    if (!pbstrName) return E_POINTER;
-    *pbstrName = nullptr;
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::GetCurrentValueType(VARTYPE* pVarType) {
-    this->OnGetCurrentValueType(pVarType);
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::Connect(IUnknown* pSink) {
-    this->OnConnect(pSink);
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::Disconnect() {
-    this->OnDisconnect();
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::GetCurrentValueData(IUnknown* pUnk, VARIANT* pVarData) {
-    this->OnGetCurrentValueData(pUnk, pVarData);
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::SetCurrentValueData(IUnknown* pUnk, const VARIANT varData) {
-    return this->OnSetCurrentValueData(pUnk, varData);
-}
-
-// --- Методы ICategorizeProperties ---
-
-STDMETHODIMP DynamicPropertyNativeBase::MapPropertyToCategory(DISPID dispID, PROPCAT* ppropcat) {
-    if (!ppropcat) return E_POINTER;
-    *ppropcat = 1;
-    return S_OK;
-}
-
-STDMETHODIMP DynamicPropertyNativeBase::GetCategoryName(PROPCAT propcat, LCID lcid, BSTR* pbstrName) {
-    if (!pbstrName) return E_POINTER;
-    if (propcat == 1) {
-        std::wstring wGroup = OnGetCategoryName(m_currentId);
-        *pbstrName = ::SysAllocString(wGroup.c_str());
-        return S_OK;
-    }
-    return E_NOTIMPL;
 }
