@@ -11,6 +11,7 @@ class DynamicPropertyNativeBase : public IUnknown
 {
 protected:
     long m_refCount;
+    void* m_pRealProperty;
 
 public:
     DynamicPropertyNativeBase();
@@ -24,12 +25,14 @@ public:
     virtual void OnConnect(::IUnknown* pSink) = 0; // Передаем сырой IUnknown на стыке модулей
     virtual void OnDisconnect() = 0;
     virtual void OnGetCurrentValueData(::IUnknown* pUnk, ::VARIANT* pVarData) = 0;
-    virtual HRESULT OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) = 0;
-    virtual void OnGetCategoryName(BSTR* pbstrName) = 0;
+    virtual HRESULT OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) = 0;    
     virtual void OnGetDescription(BSTR* pBSTRDescription) = 0;
 
+    virtual void OnGetCategoryName(BSTR* pbstrName) = 0;
+    virtual void OnMapPropertyToCategory(LONG* pPropCat) = 0;
+
     // 🚀 Объявляем виртуальный нативный метод извлечения ID
-    virtual AcDbObjectId GetObjectIdFromIUnknown(::IUnknown* pUnk);
+    virtual bool GetObjectIdFromIUnknown(::IUnknown* pUnk, ::AcDbObjectId* pOutId);
 
     // --- Базовый IUnknown ---
     STDMETHODIMP QueryInterface(REFIID riid, void** ppvRaw) override;

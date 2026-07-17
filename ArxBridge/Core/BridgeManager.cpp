@@ -159,4 +159,20 @@ namespace ArxBridge {
             }
         }
     }
+    // 🚀 Исправленная реализация с явным указанием области видимости класса
+    ArxBridge::PropertyMeta^ ArxBridge::BridgeManager::FindMetadataAcrossProviders(System::String^ propName) {
+        // Добавляем BridgeManager:: перед m_providers
+        if (BridgeManager::m_providers != nullptr) {
+            // Указываем полный тип для итератора, чтобы компилятор не запутался
+            for each (ArxBridge::SelectedDataClass ^ provider in BridgeManager::m_providers) {
+                if (provider != nullptr) {
+                    ArxBridge::PropertyMeta^ meta = provider->GetPropertyMetadata(propName);
+                    if (meta != nullptr) {
+                        return meta;
+                    }
+                }
+            }
+        }
+        return nullptr;
+    }
 }

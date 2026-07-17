@@ -18,10 +18,9 @@ namespace CurveProperties
             // Переводим AllProperties на новый класс метаданных!
             AllProperties = new Dictionary<string, PropertyMeta>
             {
-                { "Угол", new PropertyMeta("Угол", "Угол наклона кривой в плоскости X-Y", PropType.IsDouble) { Types = new List<Type>{ typeof(Line) } } },
-                { "Вертикальный угол", new PropertyMeta("Вертикальный угол", "Угол наклона кривой относительно плоскости X-Y", PropType.IsDouble){ Types = new List<Type>{ typeof(Line) } } },
-                { "Длина (сумма)", new PropertyMeta("Длина (сумма)", "Суммарная длина всех выделенных кривых", PropType.IsDouble) { Types = new List<Type>{ typeof(Curve) } } },
-                { "Площадь (сумма)", new PropertyMeta("Площадь (сумма)", "Суммарная площадь замкнутых контуров", PropType.IsDouble) { Types = new List<Type>{ typeof(Curve) } }  },
+                { "Угол", new PropertyMeta("Угол", "Угол наклона кривой в плоскости X-Y", PropType.IsDouble) { Types = new List<Type>{ typeof(Line) }, GroupType = PropertyGroup.Custom, CustomGroupName = "Странное" } },
+                { "Длина (сумма)", new PropertyMeta("Длина (сумма)", "Суммарная длина всех выделенных кривых", PropType.IsDouble) { Types = new List<Type>{ typeof(Curve) }, GroupType = PropertyGroup.Custom, CustomGroupName = "Группировка"  } },
+                { "Площадь (сумма)", new PropertyMeta("Площадь (сумма)", "Суммарная площадь замкнутых контуров", PropType.IsDouble) { Types = new List<Type>{ typeof(Curve) }, GroupType = PropertyGroup.Custom, CustomGroupName = "Группировка"   }  },
             };
         }
 
@@ -39,10 +38,9 @@ namespace CurveProperties
             if (e is Curve curve && curve.IsAcadCurve())
             {
                 // Расчет углов для Line
-                if (e is Line l && (AllProperties["Угол"].IsEnabled || AllProperties["Вертикальный угол"].IsEnabled))
+                if (e is Line l && (AllProperties["Угол"].IsEnabled))
                 {
-                    double angle = 0;
-                    double vAngle = 0;
+                    double angle = 0;                 
                     Vector3d direction = (l.EndPoint - l.StartPoint).GetNormal();
                     Vector3d proj = new Vector3d(direction.X, direction.Y, 0);
 
@@ -50,23 +48,17 @@ namespace CurveProperties
 
                     if (!direction.IsZeroLength())
                     {
-                        angle = Vector3d.XAxis.GetAngleTo(proj, Vector3d.ZAxis) * 180 / Math.PI;
-                        if (direction.Z != 0)
-                        {
-                            Vector3d rotDir = proj.TransformBy(Matrix3d.Rotation(-Math.PI / 2, Vector3d.ZAxis, Point3d.Origin));
-                            vAngle = proj.GetAngleTo(direction, rotDir) * 180 / Math.PI;
-                        }
+                        angle = Vector3d.XAxis.GetAngleTo(proj, Vector3d.ZAxis) * 180 / Math.PI;                       
                     }
 
-                    if (AllProperties["Угол"].IsEnabled) o.Properties.Add(new Property(AllProperties["Угол"], angle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры",  });
-                    if (AllProperties["Вертикальный угол"].IsEnabled) o.Properties.Add(new Property(AllProperties["Вертикальный угол"], vAngle.ToString(CultureInfo.InvariantCulture), false, this) { Group = "Параметры" });
+                    if (AllProperties["Угол"].IsEnabled) o.Properties.Add(new Property(AllProperties["Угол"], angle.ToString(CultureInfo.InvariantCulture), false, this) );
                 }
 
                 // Расчет длины (Убрали дублирующийся if)
                 if (AllProperties["Длина (сумма)"].IsEnabled)
                 {
                     double length = curve.GetLength();
-                    o.Properties.Add(new Property(AllProperties["Длина (сумма)"], length.ToString(CultureInfo.InvariantCulture), true, this) { Group = "Геометрия", IsSum = true });
+                    o.Properties.Add(new Property(AllProperties["Длина (сумма)"], length.ToString(CultureInfo.InvariantCulture), true, this) { IsSum = true });
                 }
 
                 // Расчет площади (Защита от разомкнутых кривых, не имеющих площади)
@@ -85,7 +77,7 @@ namespace CurveProperties
 
                     string areaStr = area.ToString(CultureInfo.InvariantCulture);
                                       
-                    if (AllProperties["Площадь (сумма)"].IsEnabled) o.Properties.Add(new Property(AllProperties["Площадь (сумма)"], areaStr, true, this) { Group = "Геометрия", IsSum = true, Error = error });
+                    if (AllProperties["Площадь (сумма)"].IsEnabled) o.Properties.Add(new Property(AllProperties["Площадь (сумма)"], areaStr, true, this) { IsSum = true, Error = error });
                 }
             }
         }
@@ -121,32 +113,7 @@ namespace CurveProperties
                                 l.TransformBy(Matrix3d.Rotation(d - angle, Vector3d.ZAxis, l.StartPoint));
                             }
                             break;
-                        }
-                    case "Вертикальный угол":
-                        {
-                            if (double.TryParse(valStr, NumberStyles.Any, CultureInfo.InvariantCulture, out double d) && e is Line l)
-                            {
-                                // ИСПРАВЛЕНО: Безопасная нормализация
-                                d %= 360;
-                                if (d < 0) d += 360;
-
-                                d = d * Math.PI / 180;
-                                double vAngle = 0;
-
-                                Vector3d direction = l.EndPoint - l.StartPoint;
-                                Vector3d rotDir = -Vector3d.YAxis;
-                                if (!direction.IsZeroLength())
-                                {
-                                    Vector3d proj = new Vector3d(direction.X, direction.Y, 0);
-                                    if (proj.IsZeroLength()) proj = Vector3d.XAxis;
-                                    rotDir = proj.TransformBy(Matrix3d.Rotation(-Math.PI / 2, Vector3d.ZAxis, Point3d.Origin));
-                                    vAngle = proj.GetAngleTo(direction, rotDir);
-                                }
-
-                                l.TransformBy(Matrix3d.Rotation(d - vAngle, rotDir, l.StartPoint));
-                            }
-                            break;
-                        }
+                        }           
                 }
             }
         }

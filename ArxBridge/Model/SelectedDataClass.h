@@ -119,5 +119,12 @@ namespace ArxBridge {
             }               
             return false;
         }
+        // 🚀 БЕЗОПАСНЫЙ ПУБЛИЧНЫЙ ДОСТУП К МЕТАДАННЫМ СВОЙСТВА ПО ИМЕНИ
+        PropertyMeta^ GetPropertyMetadata(System::String^ propName) {
+            if (_allProperties != nullptr && _allProperties->ContainsKey(propName)) {
+                return _allProperties[propName];
+            }
+            return nullptr;
+        }
     };
 }

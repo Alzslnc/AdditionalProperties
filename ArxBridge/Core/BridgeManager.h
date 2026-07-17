@@ -28,7 +28,9 @@ namespace ArxBridge {
         static void ExecuteBatchSync(
             System::Collections::Generic::List<SelectedObjectData^>^ objectsData,
             bool isWriteMode
-        );
+        );  
+        static PropertyMeta^ FindMetadataAcrossProviders(System::String^ propName);
+       
     };
 
 }

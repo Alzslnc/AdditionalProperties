@@ -19,8 +19,7 @@ namespace ArxBridge {
         _fullUpdateNeed = false;
         _isSum = false;
         _name = String::Empty;
-        _objectName = String::Empty;
-        _group = String::Empty;
+        _objectName = String::Empty;     
         _parent = nullptr;
         PropType = ArxBridge::PropType::IsString;
 
@@ -45,8 +44,7 @@ namespace ArxBridge {
         _newValue = nullptr;      
         _fullUpdateNeed = false;
         _isSum = false;
-        _objectName = String::Empty;
-        _group = String::Empty;
+        _objectName = String::Empty;      
         PropType = meta->PropType;
 
         _showVarious = true;
@@ -65,8 +63,7 @@ namespace ArxBridge {
     {
         if (property == nullptr) return false;
         if (Name != property->Name) return false;
-        if (PropType != property->PropType) return false;
-        if (Group != property->Group) return false;
+        if (PropType != property->PropType) return false;       
         if (IsSum != property->IsSum) return false;
         if (Parent == nullptr || property->Parent == nullptr) return false;
         if (Parent != property->Parent) return false;
@@ -113,8 +110,7 @@ namespace ArxBridge {
     {
         Property^ copy = gcnew Property();
         copy->Name = this->Name;
-        copy->ObjectName = this->ObjectName;
-        copy->Group = this->Group;
+        copy->ObjectName = this->ObjectName;      
         copy->IsSum = this->IsSum;
         copy->IsReadOnly = this->_isReadOnly;
         copy->Parent = this->Parent;

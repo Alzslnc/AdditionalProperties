@@ -13,7 +13,9 @@
 #include "ArxBridgeCore.h"
 #include "DynamicPropertyNativeBase.h"
 #include "Core/PropertyEngine.h"       // Ваш C# кэш в ОЗУ
+#include "Core/BridgeManager.h"  
 #include <vcclr.h>                     // Для PtrToStringChars
+
 
 namespace ArxBridge {
       
@@ -45,6 +47,7 @@ namespace ArxBridge {
         void OnGetCurrentValueData(::IUnknown* pUnk, ::VARIANT* pVarData) override;
         HRESULT OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) override;
         void OnGetCategoryName(BSTR* pbstrName) override;
+        void OnMapPropertyToCategory(LONG* pPropCat) override;
     };
 
     DynamicPropertyBridge::DynamicPropertyBridge(System::String^ name, System::String^ description, ArxBridge::PropType type)
@@ -113,8 +116,16 @@ namespace ArxBridge {
         if (!pbEnabled || !pUnk) return;
         *pbEnabled = TRUE;
 
-        AcDbObjectId nativeId = GetObjectIdFromIUnknown(pUnk);
+        AcDbObjectId nativeId = ::AcDbObjectId::kNull;
+        GetObjectIdFromIUnknown(pUnk, &nativeId);
         if (nativeId.isValid() && nativeId.database() != nullptr) {
+
+            // 🚀 Сохраняем ID для всей последующей цепочки вызовов палитры
+            if (m_pCurrentId != nullptr) {
+                *m_pCurrentId = nativeId;
+            }
+
+
             if (ArxBridgeCore::GetState() == BridgeState::Read && ArxBridgeCore::m_frameSelectedIds != nullptr) {
                 if (std::find(ArxBridgeCore::m_frameSelectedIds->begin(), ArxBridgeCore::m_frameSelectedIds->end(), nativeId) == ArxBridgeCore::m_frameSelectedIds->end()) {
                     ArxBridgeCore::m_frameSelectedIds->push_back(nativeId);
@@ -157,7 +168,8 @@ namespace ArxBridge {
         if (pVarData == nullptr || pUnk == nullptr) return;
         ::VariantInit(pVarData);
 
-        AcDbObjectId nativeId = GetObjectIdFromIUnknown(pUnk);
+        AcDbObjectId nativeId = ::AcDbObjectId::kNull;
+        GetObjectIdFromIUnknown(pUnk, &nativeId);
         if (nativeId.isValid() && nativeId.database() != nullptr) {
             *m_pCurrentId = nativeId;
             BridgeState currentState = ArxBridgeCore::GetState();
@@ -207,7 +219,8 @@ namespace ArxBridge {
     HRESULT DynamicPropertyBridge::OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) {
         if (varData.vt != VT_BSTR || varData.bstrVal == nullptr || pUnk == nullptr) return E_INVALIDARG;
 
-        AcDbObjectId nativeId = GetObjectIdFromIUnknown(pUnk);
+        AcDbObjectId nativeId = ::AcDbObjectId::kNull;
+        GetObjectIdFromIUnknown(pUnk, &nativeId);
         if (nativeId.isValid() && nativeId.database() != nullptr) {
             std::wstring enteredValue = varData.bstrVal;
 
@@ -241,18 +254,46 @@ namespace ArxBridge {
 
     void DynamicPropertyBridge::OnGetCategoryName(BSTR* pbstrName) {
         if (!pbstrName) return;
-        System::String^ managedGroupName = L"КМ / КЖ Параметры";
 
-        if (m_pCurrentId->isValid()) {
-            // 🚀 ИДЕАЛЬНО: Нативный поиск в кэше
-            ArxBridge::Property^ prop = PropertyEngine::FindPropertyInCache(*m_pCurrentId, m_nativePropName);
-            if (prop != nullptr && !System::String::IsNullOrEmpty(prop->Group)) {
-                managedGroupName = prop->Group;
-            }
+        // Задаем базовое дефолтное имя на случай, если метаданные не найдутся
+        System::String^ managedGroupName = gcnew System::String(u8"Дополнительные параметры");
+
+        // Превращаем нативное имя свойства в управляемую строку
+        System::String^ propName = gcnew System::String(m_nativePropName.c_str());
+
+        // Вытаскиваем метаданные свойства напрямую из менеджера моста (доступно всегда!)
+        ArxBridge::PropertyMeta^ meta = BridgeManager::FindMetadataAcrossProviders(propName);
+
+        if (meta != nullptr && meta->GroupType == PropertyGroup::Custom && !System::String::IsNullOrEmpty(meta->CustomGroupName)) {
+            managedGroupName = meta->CustomGroupName;
         }
 
+        // Безопасно маршалим строку в системный COM-тип BSTR для палитры AutoCAD
         pin_ptr<const wchar_t> pinGroup = PtrToStringChars(managedGroupName);
         *pbstrName = ::SysAllocString(pinGroup);
+    }
+    void DynamicPropertyBridge::OnMapPropertyToCategory(LONG* pPropCat) {
+        if (!pPropCat) return;
+        *pPropCat = -3; // Дефолт (Общие)
+
+        System::String^ propName = gcnew System::String(m_nativePropName.c_str());
+        PropertyMeta^ meta = BridgeManager::FindMetadataAcrossProviders(propName);
+
+        if (meta != nullptr) {
+            if (meta->GroupType == PropertyGroup::Custom) {
+                if (!System::String::IsNullOrEmpty(meta->CustomGroupName)) {
+                    // 🚀 БЕРЕМ АБСОЛЮТНОЕ ЗНАЧЕНИЕ, ЧТОБЫ ИСКЛЮЧИТЬ МИНУСЫ
+                    LONG hash = meta->CustomGroupName->GetHashCode();
+                    *pPropCat = std::abs(hash);
+
+                    // На случай, если хэш равен 0 или INT_MIN, сдвигаем в безопасную зону
+                    if (*pPropCat <= 0) *pPropCat = 1001;
+                }
+            }
+            else {
+                *pPropCat = static_cast<LONG>(meta->GroupType);
+            }
+        }
     }
 }
 

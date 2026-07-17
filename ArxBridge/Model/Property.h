@@ -31,8 +31,7 @@ namespace ArxBridge {
         bool _isSum;
         String^ _name;
         String^ _description;
-        String^ _objectName;
-        String^ _group;
+        String^ _objectName;     
         SelectedDataClass^ _parent;
 
         // Поля флагов графического интерфейса
@@ -71,12 +70,7 @@ namespace ArxBridge {
             String^ get() { return _objectName; }
             void set(String^ value) { _objectName = value; }
         }
-
-        property String^ Group {
-            String^ get() { return _group; }
-            void set(String^ value) { _group = value; }
-        }
-
+               
         property SelectedDataClass^ Parent {
             SelectedDataClass^ get() { return _parent; }
             void set(SelectedDataClass^ value) { _parent = value; }
