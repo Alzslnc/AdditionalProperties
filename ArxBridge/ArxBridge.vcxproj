@@ -211,6 +211,7 @@
   <ItemGroup>
     <ClInclude Include="Core\BridgeManager.h" />
     <ClInclude Include="Core\ArxBridgeCore.h" />
+    <ClInclude Include="Core\DynamicPropertyNativeBase.h" />
     <ClInclude Include="Model\ModelSupport.h" />
     <ClInclude Include="Model\SelectedDataClass.h" />
     <ClInclude Include="Model\Property.h" />
@@ -223,6 +224,9 @@
     <ClCompile Include="Core\BridgeManager.cpp" />
     <ClCompile Include="Core\ArxBridgeCore.cpp" />
     <ClCompile Include="Core\main.cpp" />
+    <ClCompile Include="Core\DynamicPropertyNativeBase.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">false</CompileAsManaged>
+    </ClCompile>
     <ClCompile Include="Model\ModelSupport.cpp" />
     <ClCompile Include="Model\SelectedDataClass.cpp" />
     <ClCompile Include="Model\Property.cpp" />
