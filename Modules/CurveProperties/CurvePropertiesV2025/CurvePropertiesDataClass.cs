@@ -19,9 +19,9 @@ namespace CurveProperties
             AllProperties = new Dictionary<string, PropertyMeta>
             {
                 { "Угол", new PropertyMeta("Угол", "Угол наклона кривой в плоскости X-Y", PropType.IsDouble) { Types = new List<Type>{ typeof(Line) } } },
-                { "Вертикальный угол", new PropertyMeta("Вертикальный угол", "Угол наклона кривой относительно плоскости X-Y", PropType.IsDouble, isEnabled : false){ Types = new List<Type>{ typeof(Line) } } },
+                { "Вертикальный угол", new PropertyMeta("Вертикальный угол", "Угол наклона кривой относительно плоскости X-Y", PropType.IsDouble){ Types = new List<Type>{ typeof(Line) } } },
                 { "Длина (сумма)", new PropertyMeta("Длина (сумма)", "Суммарная длина всех выделенных кривых", PropType.IsDouble) { Types = new List<Type>{ typeof(Curve) } } },
-                { "Площадь (сумма)", new PropertyMeta("Площадь (сумма)", "Суммарная площадь замкнутых контуров", PropType.IsDouble, isEnabled : false) { Types = new List<Type>{ typeof(Curve) } }  },
+                { "Площадь (сумма)", new PropertyMeta("Площадь (сумма)", "Суммарная площадь замкнутых контуров", PropType.IsDouble) { Types = new List<Type>{ typeof(Curve) } }  },
             };
         }
 

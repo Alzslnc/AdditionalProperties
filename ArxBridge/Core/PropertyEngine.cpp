@@ -303,39 +303,70 @@ namespace ArxBridge {
 
     bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, std::wstring& outValue) {
 
-        // Ищем в double-сумматорах
-        auto itDouble = AggregatedDoubles.find(propName);
-        if (itDouble != AggregatedDoubles.end()) {
-            int displayPrecision = 6; // Дефолт
-            Property^ propInCache = FindPropertyInCache(id, propName);
-            if (propInCache != nullptr && propInCache->Parent != nullptr) {
+        int displayPrecision = 6; // Дефолт
+        bool isDoubleType = false;
+
+        Property^ propInCache = FindPropertyInCache(id, propName);
+        if (propInCache != nullptr) {
+           
+            if (propInCache->PropType == PropType::IsDouble) {
+                isDoubleType = true;
+            }
+
+            if (propInCache->Parent != nullptr) {
                 displayPrecision = propInCache->Parent->Precision;
             }
+        }
 
+        // 1. Ищем в double-сумматорах
+        auto itDouble = AggregatedDoubles.find(propName);
+        if (itDouble != AggregatedDoubles.end()) {
             std::wstringstream wss;
+            wss.imbue(std::locale::classic()); // Гарантирует точку '.' как в C# ToString("F")
             wss << std::fixed << std::setprecision(displayPrecision) << itDouble->second;
             outValue = wss.str();
-
-            if (displayPrecision > 0) {
-                outValue.erase(outValue.find_last_not_of(L'0') + 1, std::wstring::npos);
-                if (outValue.back() == L'.') outValue.pop_back();
-            }
+                        
             return true;
         }
 
-        // Ищем в int-сумматорах (для штук, количеств)
+        // 2. Ищем в int-сумматорах (для штук, количеств)
         auto itInt = AggregatedInts.find(propName);
         if (itInt != AggregatedInts.end()) {
             outValue = std::to_wstring(itInt->second);
             return true;
         }
 
-        // 🏢 3. ЕСЛИ ОДИНОЧНЫЙ ВЫБОР (или обычное текстовое свойство вроде Марки):
-        // Просто забираем готовую, идеальную строку из кэша, которую нам выдал C# провайдер!
-        // Никаких std::stod и переформатирований здесь делать не нужно.
-        return TryGetCachedValue(id, propName, outValue, [](const wchar_t* str) {
+        // 🏢 3. ЕСЛИ ОДИНОЧНЫЙ ВЫБОР (или обычное текстовое свойство):
+        // Забираем строку из кэша
+        bool hasCachedValue = TryGetCachedValue(id, propName, outValue, [](const wchar_t* str) {
             return std::wstring(str);
             });
+
+        if (hasCachedValue) {
+            // Если свойство имеет тип IsDouble, форматируем полученный текст под точность
+            if (isDoubleType && !outValue.empty()) {
+                try {
+                    // Преобразуем строку в double (wcstod учитывает локаль, 
+                    // поэтому для надежности можно использовать поток с классической локалью)
+                    std::wstringstream parseStream(outValue);
+                    parseStream.imbue(std::locale::classic());
+                    double parsedDouble = 0.0;
+
+                    if (parseStream >> parsedDouble) {
+                        std::wstringstream formatStream;
+                        formatStream.imbue(std::locale::classic());
+                        formatStream << std::fixed << std::setprecision(displayPrecision) << parsedDouble;
+                        outValue = formatStream.str();
+                    }
+                }
+                catch (...) {
+                    // Если строка была не числом (например, "Н/Д"), оставляем как есть
+                }
+            }
+            return true;
+        }
+
+        return false;
     }
 
 
