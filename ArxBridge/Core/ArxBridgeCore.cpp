@@ -15,29 +15,8 @@
 #include "Core/PropertyEngine.h"       // Ваш C# кэш в ОЗУ
 #include <vcclr.h>                     // Для PtrToStringChars
 
-// 🚀 ШАГ 1: ВЫНОСИМ ОБЪЯВЛЕНИЕ В ГЛОБАЛЬНЫЙ СКОУП И ОТКЛЮЧАЕМ ДЛЯ НЕГО MANAGED КОНТЕКСТ
-// Это заставит линкер искать честное нативное имя Си-функции в .lib файлах AutoCAD
-#pragma managed(push, off)
-extern "C" AcDbStub* acdbGetDbStubPointerOfItem(::IUnknown* pUnk);
-#pragma managed(pop)
-
 namespace ArxBridge {
-
-    // Локальный нативный помощник, извлекающий ID через внутреннее ядро ObjectARX API
-    static ::AcDbObjectId GetObjectIdFromIUnknown(::IUnknown* pUnk) {
-        ::AcDbObjectId id = ::AcDbObjectId::kNull;
-        if (!pUnk) return id;
-
-        // Теперь компилятор прекрасно видит эту функцию!
-        AcDbStub* pStub = acdbGetDbStubPointerOfItem(pUnk);
-
-        if (pStub != nullptr) {
-            // Превращаем DbStub* в полноценный AcDbObjectId
-            id.setFromOldId(reinterpret_cast<LONG_PTR>(pStub));
-        }
-
-        return id;
-    }
+      
 
     class DynamicPropertyBridge : public DynamicPropertyNativeBase
     {

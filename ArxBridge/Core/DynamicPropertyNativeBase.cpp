@@ -4,8 +4,17 @@
 // 1. Подключаем оригинальные заголовочные файлы ObjectARX SDK
 #include "arxHeaders.h"
 #include <dynprops.h>
-
+#include "dbxutil.h" 
 #include "DynamicPropertyNativeBase.h"
+
+// 🚀 ВОЗВРАЩАЕМ РАСПАКОВКУ ТАЙПЛИБА AUTOCAD!
+// Это сгенерирует типы и сделает интерфейс IAcadObject видимым для компилятора
+#pragma warning(push)
+#pragma warning(disable: 4278 4192)
+#define STRINGIFY(x) #x
+#define MACRO_TO_STRING(x) STRINGIFY(x)
+#import MACRO_TO_STRING(OARX_TLB) no_namespace rename("Delete", "AcadDelete") rename("Block", "AcadBlock")
+#pragma warning(pop)
 
 // Ручное объявление интерфейса категорий (так как в dynprops.h его нет)
 #ifndef ICategorizeProperties_DEFINED
@@ -17,6 +26,24 @@ public:
     virtual STDMETHODIMP GetCategoryName(PROPCAT propcat, LCID lcid, BSTR* pbstrName) = 0;
 };
 #endif
+
+AcDbObjectId DynamicPropertyNativeBase::GetObjectIdFromIUnknown(::IUnknown* pUnk) {
+    AcDbObjectId id = AcDbObjectId::kNull;
+    if (!pUnk) return id;
+
+    IAcadObject* pAcadObj = nullptr;
+    // В нативном модуле __uuidof(IAcadObject) из #import сработает бинарно безупречно
+    if (SUCCEEDED(pUnk->QueryInterface(__uuidof(IAcadObject), (void**)&pAcadObj))) {
+        LONG_PTR rawId = 0;
+
+        // Запрашиваем ID. Благодаря раннему связыванию компилятора, промахнуться мимо vtable невозможно
+        if (SUCCEEDED(pAcadObj->get_ObjectID(&rawId)) && rawId != 0) {
+            id.setFromOldId(rawId);
+        }
+        pAcadObj->Release();
+    }
+    return id;
+}
 
 // 🚀 НАСТОЯЩАЯ МАТРЁШКА: Настоящий COM-класс. acpi.arx примет его структуру как родную!
 class RealCOMProperty : public ::IDynamicProperty2, public ::ICategorizeProperties

@@ -28,6 +28,9 @@ public:
     virtual void OnGetCategoryName(BSTR* pbstrName) = 0;
     virtual void OnGetDescription(BSTR* pBSTRDescription) = 0;
 
+    // 🚀 Объявляем виртуальный нативный метод извлечения ID
+    virtual AcDbObjectId GetObjectIdFromIUnknown(::IUnknown* pUnk);
+
     // --- Базовый IUnknown ---
     STDMETHODIMP QueryInterface(REFIID riid, void** ppvRaw) override;
     STDMETHODIMP_(ULONG) AddRef() override;
