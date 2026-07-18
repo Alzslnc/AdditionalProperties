@@ -10,12 +10,29 @@ using namespace System;
 using namespace System::Collections::Generic;
 
 namespace {
-    // Внутренняя изолированная лямбда-функция для красивого форматирования double без дублирования кода (DRY)
+    /// <summary>
+    /// Форматирует double под CAD-стандарт: округляет до заданной точности
+    /// и принудительно подавляет концевые нули и висящую точку.
+    /// </summary>
     std::wstring FormatDoubleWithPrecision(double value, int precision) {
         std::wstringstream formatStream;
-        formatStream.imbue(std::locale::classic()); // Защита разделителя (точки)
+        formatStream.imbue(std::locale::classic()); // Гарантирует точку '.' как разделитель
         formatStream << std::fixed << std::setprecision(precision) << value;
-        return formatStream.str();
+
+        std::wstring str = formatStream.str();
+
+        // Если в числе есть разделитель (точка), запускаем подавление нулей
+        if (str.find(L'.') != std::wstring::npos) {
+            // Удаляем нули с правого конца строки
+            while (!str.empty() && str.back() == L'0') {
+                str.pop_back();
+            }
+            // Если после удаления нулей на конце осталась точка (например, "150."), удаляем и её
+            if (!str.empty() && str.back() == L'.') {
+                str.pop_back();
+            }
+        }
+        return str;
     }
 }
 

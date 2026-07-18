@@ -169,8 +169,8 @@ namespace ArxBridge {
         *m_pCurrentId = AcDbObjectId::kNull;
     }
     // ============================================================================
-// 🔄 БЛОК 3. КОНВЕЙЕР ОБМЕНА ДАННЫМИ (ФАЗЫ GET / SET) С ПАНЕЛЬЮ AUTOCAD
-// ============================================================================
+    // 🔄 БЛОК 3. КОНВЕЙЕР ОБМЕНА ДАННЫМИ (ФАЗЫ GET / SET) С ПАНЕЛЬЮ AUTOCAD
+    // ============================================================================
 
     void DynamicPropertyBridge::OnGetCurrentValueData(::IUnknown* pUnk, ::VARIANT* pVarData) {
         if (pVarData == nullptr || pUnk == nullptr) return;
@@ -178,66 +178,81 @@ namespace ArxBridge {
 
         AcDbObjectId nativeId = ::AcDbObjectId::kNull;
         GetObjectIdFromIUnknown(pUnk, &nativeId);
+
         if (nativeId.isValid() && nativeId.database() != nullptr) {
             *m_pCurrentId = nativeId;
             BridgeState currentState = ArxBridgeCore::GetState();
 
-            if (currentState == BridgeState::Write) {
-                ArxBridgeCore::SetState(BridgeState::Locked);
+            // 📥 ТАКТ 1. ФИКСАЦИЯ ИЗМЕНЕНИЙ (Если пользователь только что нажал Enter/сменил фокус)
+            if (currentState == BridgeState::Write) {                
                 PropertyEngine::CommitSelectionChanges(nativeId.database());
-                ArxBridgeCore::SetState(BridgeState::Read);
+                ArxBridgeCore::SetState(BridgeState::Locked);
 
                 if (m_pNotifySink != nullptr) {
-                    if (m_pNotifySink != nullptr) {
-                        static const GUID IID_IDynamicPropertyNotify2 = { 0x5F228E11, 0x53D2, 0x473d, { 0x9C, 0x21, 0xBC, 0x20, 0xD0, 0x0C, 0x44, 0x65 } };
-                        void* pNotify2 = nullptr;
-                        if (SUCCEEDED(m_pNotifySink->QueryInterface(IID_IDynamicPropertyNotify2, &pNotify2))) {
-                            typedef void(__stdcall* OnChangedFunc)(void*, void*);
-                            OnChangedFunc* vtable = *(OnChangedFunc**)pNotify2;
-                            vtable[0](pNotify2, this);
-                            ((::IUnknown*)pNotify2)->Release();
-                        }
+                    static const GUID IID_IDynamicPropertyNotify2 = { 0x5F228E11, 0x53D2, 0x473d, { 0x9C, 0x21, 0xBC, 0x20, 0xD0, 0x0C, 0x44, 0x65 } };
+                    void* pNotify2 = nullptr;
+                    if (SUCCEEDED(m_pNotifySink->QueryInterface(IID_IDynamicPropertyNotify2, &pNotify2))) {
+                        typedef void(__stdcall* OnChangedFunc)(void*, void*);
+                        OnChangedFunc* vtable = *(OnChangedFunc**)pNotify2;
+                        vtable[0](pNotify2, this); // Уведомляем палитру об успешном обновлении
+                        ((::IUnknown*)pNotify2)->Release();
                     }
                 }
             }
 
+            // 📥 ТАКТ 2. УМНАЯ ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ (Срабатывает только для точечного Тултипа)
+            // Если OnConnect не вызывался, автомат остался в состоянии Read.
+            // Точечно обновляем кэш строго для одного этого объекта под курсором.
             if (ArxBridgeCore::GetState() == BridgeState::Read) {
                 ArxBridgeCore::SetState(BridgeState::Locked);
                 PropertyEngine::PrepareSelectionContext(nativeId.database(), { nativeId });
             }
 
+            // 📥 ТАКТ 3. ВЫДАЧА ДАННЫХ ИЗ ГОТОВОГО КЭША (Максимальная скорость O(1))
             std::wstring stringValue;
+            // 🚀 ИСПРАВЛЕНО: Вызываем новый оптимизированный OpmPropertyService вместо старого PropertyEngine
             if (OpmPropertyService::GetPropertyValue(nativeId.database(), nativeId, m_nativePropName, stringValue)) {
                 pVarData->vt = VT_BSTR;
                 pVarData->bstrVal = ::SysAllocString(stringValue.c_str());
                 return;
             }
         }
+
+        // Дефолтный ответ, если свойства нет в кэше плагина
         pVarData->vt = VT_BSTR;
         pVarData->bstrVal = ::SysAllocString(L"");
     }
 
     HRESULT DynamicPropertyBridge::OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) {
-        if (varData.vt != VT_BSTR || varData.bstrVal == nullptr || pUnk == nullptr) return E_INVALIDARG;
+        if (pUnk == nullptr) return E_INVALIDARG;
+
+        // AutoCAD OPM передает текстовые данные как VT_BSTR
+        if (varData.vt != VT_BSTR) return E_INVALIDARG;
 
         AcDbObjectId nativeId = ::AcDbObjectId::kNull;
         GetObjectIdFromIUnknown(pUnk, &nativeId);
-        if (nativeId.isValid() && nativeId.database() != nullptr) {
-            std::wstring enteredValue = varData.bstrVal;
 
+        if (nativeId.isValid() && nativeId.database() != nullptr) {
+            // 🚀 ЗАЩИТА ОТ КРАША (Access Violation): 
+            // Если пользователь полностью стёр текст в ячейке, bstrVal придет как nullptr.
+            // Заменяем его на пустую нативную строку L"", предотвращая падение конструктора std::wstring.
+            std::wstring enteredValue = (varData.bstrVal != nullptr) ? varData.bstrVal : L"";
+
+            // 🚀 ИСПРАВЛЕНО: Запись транслируется через новый OpmPropertyService
             if (OpmPropertyService::SetPropertyValue(nativeId.database(), nativeId, m_nativePropName, enteredValue)) {
+
+                // Взводим автомат в состояние Write. Следующий же такт OnGetCurrentValueData 
+                // заблокирует документ и вызовет пакетный коммит изменений в базу данных!
                 ArxBridgeCore::SetState(BridgeState::Write);
 
                 if (m_pNotifySink != nullptr) {
-                    if (m_pNotifySink != nullptr) {
-                        static const GUID IID_IDynamicPropertyNotify2 = { 0x5F228E11, 0x53D2, 0x473d, { 0x9C, 0x21, 0xBC, 0x20, 0xD0, 0x0C, 0x44, 0x65 } };
-                        void* pNotify2 = nullptr;
-                        if (SUCCEEDED(m_pNotifySink->QueryInterface(IID_IDynamicPropertyNotify2, &pNotify2))) {
-                            typedef void(__stdcall* OnChangedFunc)(void*, void*);
-                            OnChangedFunc* vtable = *(OnChangedFunc**)pNotify2;
-                            vtable[0](pNotify2, this);
-                            ((::IUnknown*)pNotify2)->Release();
-                        }
+                    static const GUID IID_IDynamicPropertyNotify2 = { 0x5F228E11, 0x53D2, 0x473d, { 0x9C, 0x21, 0xBC, 0x20, 0xD0, 0x0C, 0x44, 0x65 } };
+                    void* pNotify2 = nullptr;
+                    if (SUCCEEDED(m_pNotifySink->QueryInterface(IID_IDynamicPropertyNotify2, &pNotify2))) {
+                        typedef void(__stdcall* OnChangedFunc)(void*, void*);
+                        OnChangedFunc* vtable = *(OnChangedFunc**)pNotify2;
+                        vtable[0](pNotify2, this); // Сигнализируем палитре, что данные изменились
+                        ((::IUnknown*)pNotify2)->Release();
                     }
                 }
                 return S_OK;
@@ -245,9 +260,10 @@ namespace ArxBridge {
         }
         return E_FAIL;
     }
+
     // ============================================================================
-// 🗂️ БЛОК 4. УПРАВЛЕНИЕ КАТЕГОРИЯМИ И ГРУППИРОВКОЙ OPM СВОЙСТВ
-// ============================================================================
+    // 🗂️ БЛОК 4. УПРАВЛЕНИЕ КАТЕГОРИЯМИ И ГРУППИРОВКОЙ OPM СВОЙСТВ
+    // ============================================================================
 
     void DynamicPropertyBridge::OnGetCategoryName(BSTR* pbstrName) {
         if (!pbstrName) return;
