@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ApplicationPackage SchemaVersion="1.0" AppVersion="1.0"
+                    ProductCode="{A3B2C1D0-4E5F-6A7B-8C9D-0E1F2A3B4C5D}"
+                    Name="ArxBridge">
+
+  <CompanyDetails Name="zzz" Email="alzslnc@gmail.com"/>
+
+  <Components Description="ACad 2021-2024" Platform="ACAD | Civil3D">
+    <RuntimeRequirements OS="Win64" SeriesMax="24.3"/>
+    <ComponentEntry
+      ModuleName="./Contents/R24/ArxBridge.dll"
+    />
+  </Components>
+
+  <Components Description="ACad 2025-2026" Platform="ACAD | Civil3D">
+    <RuntimeRequirements OS="Win64" SeriesMin="25.0" SeriesMax="25.1"/>
+    <ComponentEntry
+      ModuleName="./Contents/R25/ArxBridge.dll"
+    />
+  </Components>
+
+  <Components Description="ACad 2027+" Platform="ACAD | Civil3D">
+    <RuntimeRequirements OS="Win64" SeriesMin="26.0"/>
+    <ComponentEntry
+      ModuleName="./Contents/R26/ArxBridge.dll"
+    />
+  </Components>
+
+</ApplicationPackage>

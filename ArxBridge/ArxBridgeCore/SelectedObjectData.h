@@ -1,4 +1,5 @@
 #pragma once
+#include <functional> 
 #include "dbid.h" // Обязательный нативный заголовок AutoCAD для AcDbObjectId
 
 namespace ArxBridge {

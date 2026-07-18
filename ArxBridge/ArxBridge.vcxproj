@@ -101,6 +101,17 @@
   <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <PlatformToolset>v145</PlatformToolset>
   </PropertyGroup>
+  <!-- ОПРЕДЕЛЕНИЕ ЦЕЛЕВОЙ ПАПКИ ВНУТРИ БАНДЛА ДЛЯ РЕЛИЗОВ -->
+  <PropertyGroup Condition="$(Configuration.Contains('Release_2021'))">
+    <BundleSubDir>R24</BundleSubDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(Configuration.Contains('Release_2025'))">
+    <BundleSubDir>R25</BundleSubDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="$(Configuration.Contains('Release_2027'))">
+    <BundleSubDir>R26</BundleSubDir>
+  </PropertyGroup>
+
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   <!-- Настройки путей вывода бинарников (Разделяем по папкам конфигураций) -->
@@ -265,5 +276,53 @@
       <FileType>Document</FileType>
     </CLRCompile>
   </ItemGroup>
+
+     <!-- ТАРГЕТ СБОРКИ АВТОКАД БАНДЛА (С КОПИРОВАНИЕМ IJWHOST ДЛЯ .NET CORE) -->
+  <Target Name="CreateAutoCADBundle" AfterTargets="Build" Condition="$(Configuration.Contains('Release_2021')) Or $(Configuration.Contains('Release_2025')) Or $(Configuration.Contains('Release_2027'))">
+    <PropertyGroup>
+      <!-- Основные пути бандла на основе Имени Проекта -->
+      <BundleDir>$(SolutionDir)$(ProjectName).bundle\</BundleDir>
+      <ContentsDir>$(BundleDir)Contents\</ContentsDir>
+      <TargetBundleDir>$(ContentsDir)$(BundleSubDir)\</TargetBundleDir>
+      <ManifestPath>$(BundleDir)PackageContents.xml</ManifestPath>
+    </PropertyGroup>
+
+    <!-- 1. Создаем необходимые директории -->
+    <MakeDir Directories="$(BundleDir)" Condition="!Exists('$(BundleDir)')" />
+    <MakeDir Directories="$(TargetBundleDir)" Condition="!Exists('$(TargetBundleDir)')" />
+
+    <!-- 2. Копируем скомпилированную DLL (ArxBridge.dll) в целевую подпапку -->
+    <Copy SourceFiles="$(TargetDir)$(TargetName).dll" DestinationFolder="$(TargetBundleDir)" SkipUnchangedFiles="true" />
+
+    <!-- 3. Специальная обработка для .NET Core (2025 и 2027) -->
+    <!-- Копируем обязательный .runtimeconfig.json -->
+    <Copy SourceFiles="$(TargetDir)$(TargetName).runtimeconfig.json" 
+          DestinationFolder="$(TargetBundleDir)" 
+          SkipUnchangedFiles="true" 
+          Condition="Exists('$(TargetDir)$(TargetName).runtimeconfig.json')" />
+
+    <!-- Копируем хост-рантайм ijwhost.dll, критически важный для C++/CLI на .NET Core -->
+    <Copy SourceFiles="$(TargetDir)ijwhost.dll" 
+          DestinationFolder="$(TargetBundleDir)" 
+          SkipUnchangedFiles="true" 
+          Condition="Exists('$(TargetDir)ijwhost.dll')" />
+
+    <!-- Копируем остальные сторонние зависимости, ИСКЛЮЧАЯ системные DLL AutoCAD -->
+    <ItemGroup>
+      <DependenciesToCopy Include="$(TargetDir)*.dll" 
+                          Exclude="$(TargetDir)$(TargetName).dll;
+                                   $(TargetDir)ijwhost.dll;
+                                   $(TargetDir)Ac*.dll;
+                                   $(TargetDir)Ad*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(DependenciesToCopy)" DestinationFolder="$(TargetBundleDir)" SkipUnchangedFiles="true" Condition="'@(DependenciesToCopy)' != ''" />
+
+    <!-- 4. Генерация единого манифеста PackageContents.xml -->
+    <WriteLinesToFile File="$(ManifestPath)" Overwrite="true" Encoding="utf-8" Condition="$(Configuration.Contains('Release_2021'))" Lines="&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot; ?&gt;&#xD;&#xA;&lt;ApplicationPackage SchemaVersion=&quot;1.0&quot; AppVersion=&quot;1.0&quot;&#xD;&#xA;                    ProductCode=&quot;$(ProjectGuid)&quot;&#xD;&#xA;                    Name=&quot;$(ProjectName)&quot;&gt;&#xD;&#xA;&#xD;&#xA;  &lt;CompanyDetails Name=&quot;zzz&quot; Email=&quot;alzslnc@gmail.com&quot;/&gt;&#xD;&#xA;&#xD;&#xA;  &lt;Components Description=&quot;ACad 2021-2024&quot; Platform=&quot;ACAD | Civil3D&quot;&gt;&#xD;&#xA;    &lt;RuntimeRequirements OS=&quot;Win64&quot; SeriesMax=&quot;24.3&quot;/&gt;&#xD;&#xA;    &lt;ComponentEntry&#xD;&#xA;      ModuleName=&quot;./Contents/R24/$(ProjectName).dll&quot;&#xD;&#xA;    /&gt;&#xD;&#xA;  &lt;/Components&gt;&#xD;&#xA;&#xD;&#xA;  &lt;Components Description=&quot;ACad 2025-2026&quot; Platform=&quot;ACAD | Civil3D&quot;&gt;&#xD;&#xA;    &lt;RuntimeRequirements OS=&quot;Win64&quot; SeriesMin=&quot;25.0&quot; SeriesMax=&quot;25.1&quot;/&gt;&#xD;&#xA;    &lt;ComponentEntry&#xD;&#xA;      ModuleName=&quot;./Contents/R25/$(ProjectName).dll&quot;&#xD;&#xA;    /&gt;&#xD;&#xA;  &lt;/Components&gt;&#xD;&#xA;&#xD;&#xA;  &lt;Components Description=&quot;ACad 2027+&quot; Platform=&quot;ACAD | Civil3D&quot;&gt;&#xD;&#xA;    &lt;RuntimeRequirements OS=&quot;Win64&quot; SeriesMin=&quot;26.0&quot;/&gt;&#xD;&#xA;    &lt;ComponentEntry&#xD;&#xA;      ModuleName=&quot;./Contents/R26/$(ProjectName).dll&quot;&#xD;&#xA;    /&gt;&#xD;&#xA;  &lt;/Components&gt;&#xD;&#xA;&#xD;&#xA;&lt;/ApplicationPackage&gt;" />
+    
+    <Message Importance="high" Text="[AutoCAD Bundle] Сборка $(Configuration) завершена. Бандл папка $(BundleSubDir) полностью укомплектована." />
+  </Target>
+
+
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

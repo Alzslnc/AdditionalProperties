@@ -12,45 +12,14 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Folder Name="/Modules/" />
-  <Folder Name="/Modules/CurveProperties/">
-    <Project Path="Modules/CurveProperties/CurvePropertiesV2024/CurvePropertiesV2024.csproj" Id="9acc6c79-c192-4d36-89e3-8fa8e43c91aa">
+  <Folder Name="/Example/">
+    <Project Path="Example/ExampleProject/ExampleProject.csproj" Id="f26a1ad7-664e-4f35-bd6a-ad17d4c397bc">
       <BuildType Solution="Debug_2021|*" Project="Debug" />
       <BuildType Solution="Debug_2025|*" Project="Debug" />
       <BuildType Solution="Debug_2027|*" Project="Debug" />
       <BuildType Solution="Release_2021|*" Project="Release" />
       <BuildType Solution="Release_2025|*" Project="Release" />
       <BuildType Solution="Release_2027|*" Project="Release" />
-      <Build Solution="Debug_2025|Any CPU" Project="false" />
-      <Build Solution="Debug_2025|x64" Project="false" />
-      <Build Solution="Debug_2027|Any CPU" Project="false" />
-      <Build Solution="Debug_2027|x64" Project="false" />
-      <Build Solution="Release_2027|x64" Project="false" />
-    </Project>
-    <Project Path="Modules/CurveProperties/CurvePropertiesV2025/CurvePropertiesV2025.csproj" Id="2aee7cc7-9d5f-4e54-976f-faaa4d7f42b1">
-      <BuildType Solution="Debug_2021|*" Project="Debug" />
-      <BuildType Solution="Debug_2025|*" Project="Debug" />
-      <BuildType Solution="Debug_2027|*" Project="Debug" />
-      <BuildType Solution="Release_2021|*" Project="Release" />
-      <BuildType Solution="Release_2025|*" Project="Release" />
-      <BuildType Solution="Release_2027|*" Project="Release" />
-      <Build Solution="Debug_2021|Any CPU" Project="false" />
-      <Build Solution="Debug_2021|x64" Project="false" />
-      <Build Solution="Debug_2027|Any CPU" Project="false" />
-      <Build Solution="Debug_2027|x64" Project="false" />
-      <Build Solution="Release_2027|x64" Project="false" />
-    </Project>
-    <Project Path="Modules/CurveProperties/CurvePropertiesV2027/CurvePropertiesV2027.csproj" Id="38ba5777-5bb8-4f35-a94e-c8083891bcda">
-      <BuildType Solution="Debug_2021|*" Project="Debug" />
-      <BuildType Solution="Debug_2025|*" Project="Debug" />
-      <BuildType Solution="Debug_2027|*" Project="Debug" />
-      <BuildType Solution="Release_2021|*" Project="Release" />
-      <BuildType Solution="Release_2025|*" Project="Release" />
-      <BuildType Solution="Release_2027|*" Project="Release" />
-      <Build Solution="Debug_2021|Any CPU" Project="false" />
-      <Build Solution="Debug_2021|x64" Project="false" />
-      <Build Solution="Debug_2025|Any CPU" Project="false" />
-      <Build Solution="Debug_2025|x64" Project="false" />
     </Project>
   </Folder>
   <Project Path="ArxBridge/ArxBridge.vcxproj" Id="a3b2c1d0-4e5f-6a7b-8c9d-0e1f2a3b4c5d">
