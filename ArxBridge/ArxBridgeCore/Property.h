@@ -1,5 +1,5 @@
 #pragma once
-#include "Model/Enums.h" // Подключаем, чтобы видеть перечисление PropType
+#include "Enums.h" // Подключаем, чтобы видеть перечисление PropType
 
 using namespace System;
 

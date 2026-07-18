@@ -2,8 +2,8 @@
 #include "DocumentCacheManager.h"
 #include "OpmPropertyService.h"
 #include "BridgeManager.h"
-#include "../Model/SelectedObjectData.h"
-#include "../Model/Property.h"
+#include "SelectedObjectData.h"
+#include "Property.h"
 
 #include "aced.h"
 #include "dbapserv.h"

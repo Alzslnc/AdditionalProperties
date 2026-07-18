@@ -1,8 +1,8 @@
 #include "OpmPropertyService.h"
 #include "DocumentCacheManager.h"
-#include "../Model/SelectedObjectData.h"
-#include "../Model/Property.h"
-#include "../Model/SelectedDataClass.h"
+#include "SelectedObjectData.h"
+#include "Property.h"
+#include "SelectedDataClass.h"
 #include <sstream>
 #include <iomanip>
 

@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <Unknwn.h> 
-#include "Model/Enums.h" // 👈 ПОДКЛЮЧАЕМ вместо удаленного ModelSupport.h
+#include "Enums.h" // 👈 ПОДКЛЮЧАЕМ вместо удаленного ModelSupport.h
 
 class AcDbObjectId;
 

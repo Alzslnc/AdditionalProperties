@@ -1,5 +1,5 @@
 #pragma once
-#include "Model/PropertyMeta.h"
+#include "PropertyMeta.h"
 
 namespace ArxBridge {
 

@@ -1,10 +1,10 @@
 #include "BridgeManager.h"
 #include <msclr/marshal_cppstd.h>
 
-#include "../Model/SelectedDataClass.h"
-#include "../Model/SelectedObjectData.h"
-#include "../Model/Property.h" 
-#include "../Core/ArxBridgeCore.h"
+#include "SelectedDataClass.h"
+#include "SelectedObjectData.h"
+#include "Property.h" 
+#include "ArxBridgeCore.h"
 
 using namespace System;
 using namespace Autodesk::AutoCAD::DatabaseServices;
@@ -130,23 +130,18 @@ namespace ArxBridge {
                     // 🚀 ИСПРАВЛЕНО: Строка записи в удаленный ClassName полностью ликвидирована
                     objectData->IsModified = false;
 
+                    // Сбрасываем старый набор, чтобы провайдеры заполнили кэш с чистого листа
+                    if (objectData->Properties != nullptr) {
+                        objectData->Properties->Clear(); // 🌟 Вызываем управляемый метод Clear()
+                    }
+
                     // 📤 ТАКТ 2. МГНОВЕННОЕ ПЕРЕЧИТЫВАНИЕ (Сбор свежей геометрии в .NET кэш)
                     for each (SelectedDataClass ^ provider in m_providers) {
                         if (provider != nullptr) {
                             try { provider->GetProperties(entity, objectData); }
                             catch (...) {}
                         }
-                    }
-
-                    // 🧹 ТАКТ 3. ОЧИСТКА ВРЕМЕННЫХ ЗНАЧЕНИЙ ВВОДА ПОЛЬЗОВАТЕЛЯ
-                    if (isWriteMode && objectData->Properties != nullptr) {
-                        for (int j = 0; j < objectData->Properties->Count; ++j) {
-                            if (objectData->Properties[j] != nullptr) {
-                                // Зануляем NewValue. Флаг IsChanged автоматически перейдет в false
-                                objectData->Properties[j]->NewValue = nullptr;
-                            }
-                        }
-                    }
+                    }                
                 }
                 tr->Commit();
             }

@@ -1,7 +1,11 @@
 #pragma once
-#include <Unknwn.h>
+#include <windows.h>
 
 typedef LONG PROPCAT;
+
+// Опережающее объявление нашего класса-сборщика интерфейсов
+class RealCOMProperty;
+class AcDbObjectId;
 
 /// <summary>
 /// Чисто нативный базовый класс COM-моста. Полностью изолирован от SDK в заголовке,
@@ -11,7 +15,7 @@ class DynamicPropertyNativeBase : public IUnknown
 {
 protected:
     long m_refCount;
-    void* m_pRealProperty;
+    RealCOMProperty* m_pRealProperty; // 🚀 Заменили void* на точный тип
 
 public:
     DynamicPropertyNativeBase();
@@ -22,17 +26,17 @@ public:
     virtual void OnIsPropertyReadOnly(BOOL* bIsReadOnly) = 0;
     virtual void OnIsPropertyEnabled(::IUnknown* pUnk, BOOL* pbEnabled) = 0;
     virtual void OnGetCurrentValueType(VARTYPE* pVarType) = 0;
-    virtual void OnConnect(::IUnknown* pSink) = 0; // Передаем сырой IUnknown на стыке модулей
+    virtual void OnConnect(::IUnknown* pSink) = 0;
     virtual void OnDisconnect() = 0;
     virtual void OnGetCurrentValueData(::IUnknown* pUnk, ::VARIANT* pVarData) = 0;
-    virtual HRESULT OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) = 0;    
+    virtual HRESULT OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) = 0;
     virtual void OnGetDescription(BSTR* pBSTRDescription) = 0;
 
     virtual void OnGetCategoryName(BSTR* pbstrName) = 0;
     virtual void OnMapPropertyToCategory(LONG* pPropCat) = 0;
 
-    // 🚀 Объявляем виртуальный нативный метод извлечения ID
-    virtual bool GetObjectIdFromIUnknown(::IUnknown* pUnk, ::AcDbObjectId* pOutId);
+    // Объявляем виртуальный нативный метод извлечения ID
+    virtual bool GetObjectIdFromIUnknown(IUnknown* pUnk, AcDbObjectId* pOutId);
 
     // --- Базовый IUnknown ---
     STDMETHODIMP QueryInterface(REFIID riid, void** ppvRaw) override;

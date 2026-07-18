@@ -1,8 +1,8 @@
 #include "ArxBridgeCore.h"
 #include "DynamicPropertyNativeBase.h"
 #include "OpmPropertyService.h"
-#include "Core/PropertyEngine.h"       
-#include "Core/BridgeManager.h"  
+#include "PropertyEngine.h"       
+#include "BridgeManager.h"  
 #include <msclr/marshal_cppstd.h>
 #include <vcclr.h>
 #include <algorithm>

@@ -1,3 +1,4 @@
+#include <windows.h>
 #include "ArxBridgeCore.h"
 #include "arxHeaders.h" 
 #include "dbapserv.h"                  

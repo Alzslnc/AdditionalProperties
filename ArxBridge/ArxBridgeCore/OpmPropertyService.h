@@ -2,7 +2,7 @@
 #include <map>
 #include <string>
 #include "dbid.h"
-#include "../Model/Enums.h" // Нужен для enum PropType
+#include "Enums.h" // Нужен для enum PropType
 
 namespace ArxBridge {
 

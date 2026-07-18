@@ -1,6 +1,6 @@
 #include "DocumentCacheManager.h"
-#include "../Model/SelectedObjectData.h"
-#include "../Model/Property.h"
+#include "SelectedObjectData.h"
+#include "Property.h"
 
 using namespace System;
 using namespace System::Collections::Generic;

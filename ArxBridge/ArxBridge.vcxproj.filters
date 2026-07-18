@@ -1,90 +1,123 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Исходные файлы">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    <Filter Include="Core">
+      <UniqueIdentifier>{b2c25f97-0ced-4c6e-a05a-1bc9388ec47d}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Файлы заголовков">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    <Filter Include="Model">
+      <UniqueIdentifier>{35a2da64-32ab-441a-80fc-345620b12c73}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Файлы ресурсов">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="Core\OpmBridge">
+      <UniqueIdentifier>{ef6a3d04-c6b9-45b5-8d1a-d8d5f62d4d64}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\OpmBridge\Interfaces">
+      <UniqueIdentifier>{b51fc80d-42f6-48e6-9518-7228ed0f750f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\OpmBridge\Implementations">
+      <UniqueIdentifier>{765cc918-29c6-4429-8ac1-40a66824f3e6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\App">
+      <UniqueIdentifier>{4f1a3f2e-7302-479e-a9d5-4355c8da3890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Engine">
+      <UniqueIdentifier>{78fea874-12e2-48e4-9801-bcd29b29802e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Infrastructure">
+      <UniqueIdentifier>{760dd9c1-587f-4b87-8ea1-376a67e97bdb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Core\Bridge">
+      <UniqueIdentifier>{54718888-f8d3-4934-9681-a1bc6592e021}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Core\ArxBridgeCore.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\SelectedObjectData.cpp">
+      <Filter>Model</Filter>
     </ClCompile>
-    <ClCompile Include="Model\Property.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\Property.cpp">
+      <Filter>Model</Filter>
     </ClCompile>
-    <ClCompile Include="Core\PropertyEngine.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\RealCOMProperty.cpp">
+      <Filter>Core\OpmBridge</Filter>
     </ClCompile>
-    <ClCompile Include="Model\SelectedObjectData.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\DynamicPropertyNativeBase.cpp">
+      <Filter>Core\OpmBridge</Filter>
     </ClCompile>
-    <ClCompile Include="Core\PropertyReactor.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\OPMIDynamicProperty2Base.cpp">
+      <Filter>Core\OpmBridge\Implementations</Filter>
     </ClCompile>
-    <ClCompile Include="Core\BridgeManager.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\OPMICategorizePropertiesBase.cpp">
+      <Filter>Core\OpmBridge\Implementations</Filter>
     </ClCompile>
-    <ClCompile Include="Core\main.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\main.cpp">
+      <Filter>Core\App</Filter>
     </ClCompile>
-    <ClCompile Include="Core\DynamicPropertyNativeBase.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\OpmPropertyService.cpp">
+      <Filter>Core\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="Core\DocumentCacheManager.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\PropertyEngine.cpp">
+      <Filter>Core\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="Core\OpmPropertyService.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\PropertyReactor.cpp">
+      <Filter>Core\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="Core\DynamicPropertyBridge.cpp">
-      <Filter>Исходные файлы</Filter>
+    <ClCompile Include="ArxBridgeCore\DocumentCacheManager.cpp">
+      <Filter>Core\Infrastructure</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\BridgeManager.cpp">
+      <Filter>Core\Infrastructure</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\DynamicPropertyBridge.cpp">
+      <Filter>Core\Bridge</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\ArxBridgeCore.cpp">
+      <Filter>Core\Bridge</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Core\ArxBridgeCore.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\Enums.h">
+      <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Model\SelectedDataClass.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\Property.h">
+      <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Model\Property.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\PropertyMeta.h">
+      <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Core\PropertyEngine.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\SelectedDataClass.h">
+      <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Model\SelectedObjectData.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\SelectedObjectData.h">
+      <Filter>Model</Filter>
     </ClInclude>
-    <ClInclude Include="Core\PropertyReactor.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\RealCOMProperty.h">
+      <Filter>Core\OpmBridge</Filter>
     </ClInclude>
-    <ClInclude Include="Core\BridgeManager.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\DynamicPropertyNativeBase.h">
+      <Filter>Core\OpmBridge</Filter>
     </ClInclude>
-    <ClInclude Include="Core\DynamicPropertyNativeBase.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\OpmIDynamicProperty2.h">
+      <Filter>Core\OpmBridge\Interfaces</Filter>
     </ClInclude>
-    <ClInclude Include="Model\Enums.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\OpmICategorizeProperties.h">
+      <Filter>Core\OpmBridge\Interfaces</Filter>
     </ClInclude>
-    <ClInclude Include="Model\PropertyMeta.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\PropertyEngine.h">
+      <Filter>Core\Engine</Filter>
     </ClInclude>
-    <ClInclude Include="Core\DocumentCacheManager.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\PropertyReactor.h">
+      <Filter>Core\Engine</Filter>
     </ClInclude>
-    <ClInclude Include="Core\OpmPropertyService.h">
-      <Filter>Файлы заголовков</Filter>
+    <ClInclude Include="ArxBridgeCore\OpmPropertyService.h">
+      <Filter>Core\Engine</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\BridgeManager.h">
+      <Filter>Core\Infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\DocumentCacheManager.h">
+      <Filter>Core\Infrastructure</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\ArxBridgeCore.h">
+      <Filter>Core\Bridge</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
