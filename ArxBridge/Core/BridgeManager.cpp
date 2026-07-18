@@ -3,6 +3,7 @@
 
 #include "../Model/SelectedDataClass.h"
 #include "../Model/SelectedObjectData.h"
+#include "../Model/Property.h" 
 #include "../Core/ArxBridgeCore.h"
 
 using namespace System;
@@ -10,7 +11,7 @@ using namespace Autodesk::AutoCAD::DatabaseServices;
 using namespace System::Collections::Generic;
 
 namespace ArxBridge {
-
+     
     void BridgeManager::Initialize() {
         if (m_providers == nullptr) {
             m_providers = gcnew List<SelectedDataClass^>();
@@ -75,7 +76,6 @@ namespace ArxBridge {
     }
 
     // 🚀 ЕДИНЫЙ ВЫСОКОСКОРОСТНОЙ КОНВЕЙЕР СИНХРОНИЗАЦИИ ДАННЫХ
-    // (Покрывает и Фазу Чтения, и Фазу Записи на месте без дублирования)
     void BridgeManager::ExecuteBatchSync(List<SelectedObjectData^>^ objectsData, bool isWriteMode) {
         if (objectsData == nullptr || objectsData->Count == 0 || m_providers == nullptr) {
             return;
@@ -85,12 +85,21 @@ namespace ArxBridge {
             Autodesk::AutoCAD::ApplicationServices::Application::DocumentManager->MdiActiveDocument;
         if (doc == nullptr) return;
 
-        // 🚀 ИСПРАВЛЕНО: Явный указатель с крышечкой для безопасного деструктурирования
+        // Явный указатель с крышечкой для безопасного деструктурирования контекста сессии AutoCAD
         Autodesk::AutoCAD::ApplicationServices::DocumentLock^ docLock = doc->LockDocument();
 
         try {
             Database^ db = doc->Database;
             if (db == nullptr) return;
+
+            // 🚀 ОПТИМИЗАЦИЯ: Вызываем PreAcadUpdateAction ОДИН раз для каждого плагина 
+            // перед стартом тяжелого цикла обхода объектов чертежа
+            for each (SelectedDataClass ^ provider in m_providers) {
+                if (provider != nullptr) {
+                    try { provider->PreAcadUpdateAction(); }
+                    catch (...) {}
+                }
+            }
 
             Transaction^ tr = db->TransactionManager->StartTransaction();
             try {
@@ -107,7 +116,7 @@ namespace ArxBridge {
                     Entity^ entity = dynamic_cast<Entity^>(tr->GetObject(id, mode, false, true));
                     if (entity == nullptr) continue;
 
-                    // 📥 ТАКТ 1. ЗАПИСЬ (Срабатывает только в режиме фиксации изменений)
+                    // 📥 ТАКТ 1. ЗАПИСЬ И ФИКСАЦИЯ ИЗМЕНЕНИЙ В ЧЕРТЕЖ
                     if (isWriteMode && objectData->IsChanged) {
                         for each (SelectedDataClass ^ provider in m_providers) {
                             if (provider != nullptr) {
@@ -117,27 +126,24 @@ namespace ArxBridge {
                         }
                     }
 
-                    // Системный паспорт типа объекта (всегда актуализируем при проходе)
-                    objectData->ClassName = entity->GetType()->Name;
+                    // Сбрасываем флаг модификации: объект теперь полностью актуален
+                    // 🚀 ИСПРАВЛЕНО: Строка записи в удаленный ClassName полностью ликвидирована
                     objectData->IsModified = false;
 
-                    // 📤 ТАКТ 2. ЧТЕНИЕ ПО ГОРЯЧИМ СЛЕДАМ (Перечитываем честную точность геометрии из БД)
+                    // 📤 ТАКТ 2. МГНОВЕННОЕ ПЕРЕЧИТЫВАНИЕ (Сбор свежей геометрии в .NET кэш)
                     for each (SelectedDataClass ^ provider in m_providers) {
                         if (provider != nullptr) {
-                            try 
-                            { 
-                                provider->PreAcadUpdateAction();
-                                provider->GetProperties(entity, objectData); 
-                            }
+                            try { provider->GetProperties(entity, objectData); }
                             catch (...) {}
                         }
                     }
 
-                    // 🧹 ТАКТ 3. СБРОС ФЛАГОВ ИЗМЕНЕНИЙ (После успешного перечитывания зануляем NewValue)
+                    // 🧹 ТАКТ 3. ОЧИСТКА ВРЕМЕННЫХ ЗНАЧЕНИЙ ВВОДА ПОЛЬЗОВАТЕЛЯ
                     if (isWriteMode && objectData->Properties != nullptr) {
                         for (int j = 0; j < objectData->Properties->Count; ++j) {
                             if (objectData->Properties[j] != nullptr) {
-                                objectData->Properties[j]->NewValue = nullptr; // IsChanged автоматически станет false
+                                // Зануляем NewValue. Флаг IsChanged автоматически перейдет в false
+                                objectData->Properties[j]->NewValue = nullptr;
                             }
                         }
                     }
@@ -149,21 +155,18 @@ namespace ArxBridge {
                 tr->Abort();
             }
             finally {
-                delete tr; // Уничтожаем транзакцию CLR
+                delete tr; // Жестко уничтожаем транзакцию CLR
             }
         }
         finally {
-            // 🚀 БЕЗОПАСНЫЙ СБРОС БЛОКИРОВКИ ДОКУМЕНТА
             if (docLock != nullptr) {
-                delete docLock;
+                delete docLock; // Безопасный сброс блокировки dwg-файла
             }
         }
     }
-    // 🚀 Исправленная реализация с явным указанием области видимости класса
-    ArxBridge::PropertyMeta^ ArxBridge::BridgeManager::FindMetadataAcrossProviders(System::String^ propName) {
-        // Добавляем BridgeManager:: перед m_providers
+
+    ArxBridge::PropertyMeta^ BridgeManager::FindMetadataAcrossProviders(System::String^ propName) {
         if (BridgeManager::m_providers != nullptr) {
-            // Указываем полный тип для итератора, чтобы компилятор не запутался
             for each (ArxBridge::SelectedDataClass ^ provider in BridgeManager::m_providers) {
                 if (provider != nullptr) {
                     ArxBridge::PropertyMeta^ meta = provider->GetPropertyMetadata(propName);

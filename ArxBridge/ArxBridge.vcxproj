@@ -212,13 +212,15 @@
     <ClInclude Include="Core\BridgeManager.h" />
     <ClInclude Include="Core\ArxBridgeCore.h" />
     <ClInclude Include="Core\DynamicPropertyNativeBase.h" />
-    <ClInclude Include="Model\ModelSupport.h" />
+    <ClInclude Include="Core\DocumentCacheManager.h" />
+    <ClInclude Include="Model\Enums.h" />
     <ClInclude Include="Model\SelectedDataClass.h" />
     <ClInclude Include="Model\Property.h" />
-    <ClInclude Include="Model\Support.h" />
     <ClInclude Include="Core\PropertyEngine.h" />
     <ClInclude Include="Model\SelectedObjectData.h" />
     <ClInclude Include="Core\PropertyReactor.h" />
+    <ClInclude Include="Model\PropertyMeta.h" />
+    <ClInclude Include="Core\OpmPropertyService.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Core\BridgeManager.cpp" />
@@ -227,13 +229,13 @@
     <ClCompile Include="Core\DynamicPropertyNativeBase.cpp">
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">false</CompileAsManaged>
     </ClCompile>
-    <ClCompile Include="Model\ModelSupport.cpp" />
-    <ClCompile Include="Model\SelectedDataClass.cpp" />
+    <ClCompile Include="Core\DocumentCacheManager.cpp" />
+    <ClCompile Include="Core\DynamicPropertyBridge.cpp" />
     <ClCompile Include="Model\Property.cpp" />
-    <ClCompile Include="Model\Support.cpp" />
     <ClCompile Include="Core\PropertyEngine.cpp" />
     <ClCompile Include="Model\SelectedObjectData.cpp" />
     <ClCompile Include="Core\PropertyReactor.cpp" />
+    <ClCompile Include="Core\OpmPropertyService.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="accoremgd">

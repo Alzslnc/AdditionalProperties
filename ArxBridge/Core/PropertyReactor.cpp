@@ -1,23 +1,12 @@
 #include "PropertyReactor.h"
 #include "PropertyEngine.h" 
+#include "DocumentCacheManager.h"
 
-namespace ArxBridge {
-
-    PropertyReactor::PropertyReactor() {}
-    PropertyReactor::~PropertyReactor() {
-        // При деструкции глобального статического объекта acDocManager может быть уже nullptr.
-        // Передаем проверку внутрь.
-        stopMonitoring();
-    }
-
-    PropertyReactor& PropertyReactor::getInstance() {
-        static PropertyReactor instance;
-        return instance;
-    }
-
-    // Вспомогательный приватный метод для массовой подписки/отписки от баз данных dwg
-    // (Этого метода нет в .h, его можно вызвать локально, если объявить как private или прямо тут)
-    void UpdateAllDatabases(PropertyReactor* pReactor, bool attach) {
+namespace {
+    /// <summary>
+    /// Вспомогательная функция для массовой подписки или отписки реактора от баз данных всех открытых чертежей.
+    /// </summary>
+    void UpdateAllDatabases(ArxBridge::PropertyReactor* pReactor, bool attach) {
         if (acDocManager == nullptr) return;
 
         AcApDocumentIterator* pIt = acDocManager->newAcApDocumentIterator();
@@ -26,7 +15,7 @@ namespace ArxBridge {
                 AcApDocument* pDoc = pIt->document();
                 if (pDoc && pDoc->database()) {
                     if (attach) {
-                        pDoc->database()->addReactor(pReactor); // Теперь компилятор счастлив!
+                        pDoc->database()->addReactor(pReactor);
                     }
                     else {
                         pDoc->database()->removeReactor(pReactor);
@@ -36,18 +25,32 @@ namespace ArxBridge {
             delete pIt;
         }
     }
+} // namespace
+
+namespace ArxBridge {
+
+    PropertyReactor::PropertyReactor() {}
+
+    PropertyReactor::~PropertyReactor() {
+        stopMonitoring();
+    }
+
+    PropertyReactor& PropertyReactor::getInstance() {
+        static PropertyReactor instance;
+        return instance;
+    }
 
     void PropertyReactor::startMonitoring() {
         if (acDocManager != nullptr) {
             acDocManager->addReactor(this);
-            UpdateAllDatabases(this, true); // Подключаем реакторы на лету
+            UpdateAllDatabases(this, true);
         }
     }
 
     void PropertyReactor::stopMonitoring() {
         if (acDocManager != nullptr) {
             acDocManager->removeReactor(this);
-            UpdateAllDatabases(this, false); // Чисто отписываемся от всех окон
+            UpdateAllDatabases(this, false);
         }
     }
 
@@ -60,20 +63,18 @@ namespace ArxBridge {
     void PropertyReactor::documentToBeDestroyed(AcApDocument* pDoc) {
         if (pDoc && pDoc->database()) {
             pDoc->database()->removeReactor(this);
-            PropertyEngine::ClearCache(pDoc->database()); // Защита от утечек ОЗУ
+            // КРИТИЧЕСКИ ВАЖНО: Уничтожаем пакетный кэш закрываемого чертежа для защиты от утечек ОЗУ
+            DocumentCacheManager::ClearCache(pDoc->database());
         }
-    }
-
-    void PropertyReactor::documentActivated(AcApDocument* pDoc) {
-        PropertyEngine::AggregatedDoubles.clear();
-        PropertyEngine::AggregatedInts.clear();
     }
 
     void PropertyReactor::objectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) {
         if (pDb && pObj) {
-            // const_cast необходим, так как кэш PropertyEngine принимает не-const указатель
             AcDbDatabase* pModDb = const_cast<AcDbDatabase*>(pDb);
-            PropertyEngine::InvalidateObject(pModDb, pObj->objectId()); // Мгновенный точечный сброс флага
+
+            // СЕРДЦЕ ЛЕНИВОЙ АКТУАЛИЗАЦИИ: 
+            // Точечно взводим флаг IsModified = true для этого объекта в пакетном кэше конкретного чертежа.
+            DocumentCacheManager::InvalidateObject(pModDb, pObj->objectId());
         }
     }
 } // namespace ArxBridge

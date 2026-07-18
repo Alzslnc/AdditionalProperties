@@ -1,126 +1,75 @@
 #pragma once
-#include "Model/ModelSupport.h"
-
-// Подключаем базовые пространства имен .NET
-using namespace System;
-using namespace System::Collections::Generic;
-using namespace System::Linq;
-
-// Подключаем пространства имен AutoCAD API (из DLL)
-using namespace Autodesk::AutoCAD::DatabaseServices;
+#include "Model/PropertyMeta.h"
 
 namespace ArxBridge {
 
-    // Добавляем опережающие объявления для ОБОИХ классов:
+    // Опережающие объявления для управляемых классов
     ref class Property;
-    ref class UnitedProperty;
     ref class SelectedObjectData;
+
     /// <summary>
-    /// Класс хранящий в себе метод получения нужных параметров и методы их изменения
+    /// Базовый абстрактный класс моста. Служит ядром для C#-плагинов,
+    /// предоставляя логику извлечения метаданных, получения и записи свойств объектов AutoCAD.
     /// </summary>
     public ref class SelectedDataClass abstract
     {
-            
     private:
-        // Внутренние поля для свойств
-        String^ _name;
-        bool _changeNeed;
+        // Используем явное указание типа System::String^ вместо короткого String^
+        System::String^ _name;
         int _precision;
-        Dictionary<String^, PropertyMeta^>^ _allProperties;
+        System::Collections::Generic::Dictionary<System::String^, ArxBridge::PropertyMeta^>^ _allProperties;
 
     public:
-        // Конструктор по умолчанию для инициализации полей
         SelectedDataClass()
         {
-            _changeNeed = false;
+            _name = System::String::Empty;
             _precision = 3;
-            _allProperties = gcnew Dictionary<String^, PropertyMeta^>();
+            _allProperties = gcnew System::Collections::Generic::Dictionary<System::String^, ArxBridge::PropertyMeta^>();
         }
 
-        /// <summary>
-        /// название, используется для идентификации класса в панели настроек
-        /// </summary>
-        property String^ Name {
-            String^ get() { return _name; }
-            void set(String^ value) { _name = value; }
-        }    
+        property System::String^ Name {
+            System::String^ get() { return _name; }
+            void set(System::String^ value) { _name = value; }
+        }
 
-        /// <summary>
-        /// точность округления double значений
-        /// </summary>
         property int Precision {
             int get() { return _precision; }
             void set(int value) { _precision = value; }
         }
 
+        virtual void PreAcadUpdateAction() {}
+
         /// <summary>
-        /// Выполняет действия перед получением параметров
+        /// Поштучное извлечение параметров. 
+        /// Обратите внимание: тип Entity указан абсолютно прозрачно и безопасно.
         /// </summary>
-        virtual void PreAcadUpdateAction()
-        {}
+        virtual void GetProperties(
+            Autodesk::AutoCAD::DatabaseServices::Entity^ e,
+            ArxBridge::SelectedObjectData^ data) abstract;
 
         /// <summary>
-        /// Выполняет действия после получения объединения параметров
+        /// Поштучное изменение параметров.
         /// </summary>
-        virtual void AfterUnitedAction(UnitedProperty^ property, List<UnitedProperty^>^ properties)
-        {}
+        virtual void SetProperties(
+            Autodesk::AutoCAD::DatabaseServices::Entity^ e,
+            System::Collections::Generic::List<ArxBridge::Property^>^ properties) abstract;
 
-        /// <summary>
-       /// Поштучное получение и заполнение параметров для конкретного примитива.
-       /// Вызывается C++ мостом внутри ОДНОЙ глобальной транзакции чтения.
-       /// </summary>
-       /// <param name="e">Живой открытый объект примитива AutoCAD (Line, Circle и др.)</param>
-       /// <param name="data">Контейнер кэша, в список Properties которого наследник записывает свойства</param>
-        virtual void GetProperties(Autodesk::AutoCAD::DatabaseServices::Entity^ e, SelectedObjectData^ data) abstract;
-
-        /// <summary>
-        /// Поштучное изменение параметров примитива в базе данных чертежа.
-        /// Вызывается C++ мостом внутри ОДНОЙ глобальной транзакции записи (ForWrite).
-        /// </summary>
-        /// <param name="e">Живой открытый на запись объект примитива AutoCAD</param>
-        /// <param name="properties">Список измененных свойств, которые нужно применить к объекту</param>
-        virtual void SetProperties(Autodesk::AutoCAD::DatabaseServices::Entity^ e, List<Property^>^ properties) abstract;
-
-        /// <summary>
-        /// Действие, вызываемое одним из вариантов при выборе свойства из комбобокса
-        /// </summary>  
-        virtual bool Action(Property^ property)
+        virtual bool Action(ArxBridge::Property^ property)
         {
             return false;
         }
 
-        /// <summary>
-        /// Действие, вызываемое одним из вариантов при выборе свойства из комбобокса, возвращает какой либо объект
-        /// </summary>  
-        virtual Object^ ResultAction(Property^ property)
+        virtual Object^ ResultAction(ArxBridge::Property^ property)
         {
             return nullptr;
         }
 
-        /// <summary>
-        /// список параметров, с флагом отображения в панели
-        /// </summary>
-        property Dictionary<String^, PropertyMeta^>^ AllProperties {
-            Dictionary<String^, PropertyMeta^>^ get() { return _allProperties; }
-            void set(Dictionary<String^, PropertyMeta^>^ value) { _allProperties = value; }
-        }
+        property System::Collections::Generic::Dictionary<System::String^, ArxBridge::PropertyMeta^>^ AllProperties {
+            System::Collections::Generic::Dictionary<System::String^, ArxBridge::PropertyMeta^>^ get() { return _allProperties; }
+            void set(System::Collections::Generic::Dictionary<System::String^, ArxBridge::PropertyMeta^>^ value) { _allProperties = value; }
+        }    
 
-        /// <summary>
-        /// проверяет, содержит ли словарь хотя бы одно true значение
-        /// </summary>
-        bool CheckProperties()
-        {
-            if (_allProperties != nullptr)
-            {
-                for each (PropertyMeta^ meta in _allProperties->Values)
-                {
-                    if (meta->IsEnabled)  return true;
-                }
-            }               
-            return false;
-        }
-        // 🚀 БЕЗОПАСНЫЙ ПУБЛИЧНЫЙ ДОСТУП К МЕТАДАННЫМ СВОЙСТВА ПО ИМЕНИ
-        PropertyMeta^ GetPropertyMetadata(System::String^ propName) {
+        ArxBridge::PropertyMeta^ GetPropertyMetadata(System::String^ propName) {
             if (_allProperties != nullptr && _allProperties->ContainsKey(propName)) {
                 return _allProperties[propName];
             }

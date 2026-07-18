@@ -1,161 +1,122 @@
 #pragma once
-#include "Model/ModelSupport.h"
+#include "Model/Enums.h" // Подключаем, чтобы видеть перечисление PropType
 
 using namespace System;
-using namespace System::Collections::Generic;
 
 namespace ArxBridge {
 
+    // Предварительные объявления управляемых классов
+    ref class PropertyMeta;
     ref class SelectedDataClass;
 
     /// <summary>
-    /// Компонент сложного (составного) значения параметра.
-    /// </summary>
-    public ref class ValueComponent
-    {
-    public:
-        property String^ Value;
-    };
-
-    /// <summary>
-    /// Класс индивидуального и совмещенного свойства объекта AutoCAD.
-    /// Полностью очищен от Object^ в полях значений для защиты компилятора в gcroot.h.
+    /// Контейнер текущего состояния свойства объекта в кэше.
+    /// Хранит строковые значения, тип данных и ссылку на родительский абстрактный класс.
     /// </summary>
     public ref class Property
     {
     private:
-        bool _isReadOnly;
-        String^ _value;
-        String^ _newValue;
-        bool _fullUpdateNeed;
-        bool _isSum;
+        // Уникальное имя-идентификатор свойства (ключ для связи с OPM и C# логикой)
         String^ _name;
-        String^ _description;
-        String^ _objectName;     
+
+        // Текущее строковое значение, считанное из чертежа
+        String^ _value;
+
+        // Новое строковое значение, введенное пользователем в стандартной панели свойств
+        String^ _newValue;
+
+        // Тип данных свойства (определяет маршалинг в COM VARIANT на стороне C++)
+        ArxBridge::PropType _propType;
+
+        // Флаг запрета редактирования свойства в OPM-панели
+        bool _isReadOnly;
+
+        // Флаг требования суммирования значений при множественном выборе объектов
+        bool _isSum;
+
+        // Флаг ошибки при получении значения
+        bool _error; 
+        // Ссылка на родительский абстрактный класс моста для доступа к динамическим параметрам
         SelectedDataClass^ _parent;
 
-        // Поля флагов графического интерфейса
-        bool _showVarious;
-        bool _error;
-        bool _isAction;
-        bool _isSelected;
-        bool _isVarious;
-        bool _objectTypeEqual;
-        bool _needRegen;
-        List<ValueComponent^>^ _components;
-
     public:
-        // --- Конструкторы класса (Только объявления) ---
+        // --- Конструкторы класса ---
+
+        /// <summary> Конструктор по умолчанию. </summary>
         Property();
+
+        /// <summary>
+        /// Конструктор инициализации свойства через метаданные (паспорт свойства).
+        /// </summary>
         Property(PropertyMeta^ meta, String^ value, bool isReadOnly, SelectedDataClass^ parent);
 
         // --- Методы жизненного цикла и сравнения ---
-        bool IsEqual(Property^ property);
-        bool IsEqualValue(String^ value);
-        bool IsEqualValue(Property^ property);
-        Property^ Clone();
 
-        // --- Управляемые свойства (Доступ к инкапсулированным полям) ---
+        /// <summary> 
+        /// Покомпонентное сравнение текущего строкового значения с новым с учетом Precision из родителя.
+        /// </summary>
+        bool IsEqualValue(String^ value);
+
+        // --- Управляемые свойства (Доступ к данным) ---
+
+        /// <summary> Имя свойства. Служит ключом для поиска в пакетном кэше. </summary>
         property String^ Name {
             String^ get() { return _name; }
             void set(String^ value) { _name = value; }
         }
 
-        property String^ Description{
-                      String ^ get() { return _description; }
-                      void set(String ^ value) { _description = value; }
-        }
-
-        property String^ ObjectName {
-            String^ get() { return _objectName; }
-            void set(String^ value) { _objectName = value; }
-        }
-               
-        property SelectedDataClass^ Parent {
-            SelectedDataClass^ get() { return _parent; }
-            void set(SelectedDataClass^ value) { _parent = value; }
-        }
-
-        property PropType PropType;
-
-        property bool IsSum {
-            bool get() { return _isSum; }
-            void set(bool value) { _isSum = value; }
-        }
-
-        property bool IsReadOnly {
-            bool get() { return _isSum ? true : _isReadOnly; }
-            void set(bool value) { _isReadOnly = value; }
-        }
-
+        /// <summary> Текущее валидное значение свойства в строковом виде. </summary>
         property String^ Value {
             String^ get() { return _value; }
             void set(String^ value) { _value = value; }
         }
 
+        /// <summary> Новое строковое значение, ожидающее парсинга и фиксации в базе данных AutoCAD. </summary>
         property String^ NewValue {
-            String^ get() {
-                // Возвращает ровно то, что сохранено (nullptr или строку)
-                return _newValue;
-            }
-            void set(String^ value) {
-                // Сохраняет ровно то, что пришло (даже если пришел nullptr)
-                _newValue = value;
-            }
+            String^ get() { return _newValue; }
+            void set(String^ value) { _newValue = value; }
         }
 
+        /// <summary> Тип данных свойства для корректной упаковки в COM VARIANT. </summary>
+        property ArxBridge::PropType PropType {
+            ArxBridge::PropType get() { return _propType; }
+            void set(ArxBridge::PropType value) { _propType = value; }
+        }
+
+        /// <summary> Флаг, указывающий, что строка значения была изменена пользователем в OPM. </summary>
         property bool IsChanged {
-            bool get() 
-            { 
-                if (NewValue == nullptr || Value == nullptr) return false;
-                return !IsEqualValue(NewValue);
-            }         
+            bool get()
+            {
+                if (_newValue == nullptr || _value == nullptr) return false;
+                return !IsEqualValue(_newValue);
+            }
         }
 
-        property bool FullUpdateNeed {
-            bool get() { return _fullUpdateNeed; }
-            void set(bool value) { _fullUpdateNeed = value; }
+        /// <summary> Определяет, заблокировано ли свойство для редактирования пользователем. </summary>
+        property bool IsReadOnly {
+            bool get() { return _isSum ? true : _isReadOnly; }
+            void set(bool value) { _isReadOnly = value; }
         }
 
-        // Свойства расширенных флагов интерфейса палитры
-        property bool ShowVarious {
-            bool get() { return _showVarious; }
-            void set(bool value) { _showVarious = value; }
+        /// <summary> Флаг требования суммирования значений при множественном выборе объектов. </summary>
+        property bool IsSum {
+            bool get() { return _isSum; }
+            void set(bool value) { _isSum = value; }
         }
-
+        /// <summary> 
+        
+        /// Флаг ошибки. Взводится C#-наследником, если свойства объекта повреждены, 
+        /// не могут быть прочитаны или расчет параметра завершился сбоем.
+        /// </summary>
         property bool Error {
             bool get() { return _error; }
             void set(bool value) { _error = value; }
         }
 
-        property bool IsAction {
-            bool get() { return _isAction; }
-            void set(bool value) { _isAction = value; }
-        }
-
-        property bool IsSelected {
-            bool get() { return _isSelected; }
-            void set(bool value) { _isSelected = value; }
-        }
-
-        property bool IsVarious {
-            bool get() { return _isVarious; }
-            void set(bool value) { _isVarious = value; }
-        }
-
-        property bool ObjectTypeEqual {
-            bool get() { return _objectTypeEqual; }
-            void set(bool value) { _objectTypeEqual = value; }
-        }
-
-        property bool NeedRegen {
-            bool get() { return _needRegen; }
-            void set(bool value) { _needRegen = value; }
-        }
-
-        property List<ValueComponent^>^ Components {
-            List<ValueComponent^>^ get() { return _components; }
-            void set(List<ValueComponent^>^ value) { _components = value; }
+        /// <summary> Ссылка на родительский абстрактный класс моста. </summary>
+        property SelectedDataClass^ Parent {
+            SelectedDataClass^ get() { return _parent; }
+            void set(SelectedDataClass^ value) { _parent = value; }
         }
     };
 }

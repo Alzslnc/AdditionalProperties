@@ -5,10 +5,7 @@
 #include "BridgeManager.h"
 #include "PropertyEngine.h"
 #include "PropertyReactor.h"
-#include "Model/ModelSupport.h"
-
-// Используем наше пространство имен, чтобы убрать визуальный шум из методов
-using namespace ArxBridge;
+#include "DocumentCacheManager.h"
 
 // Главный нативный класс-наследник сессии приложения AutoCAD
 class CArxBridgeApp : public AcRxDbxApp {
@@ -18,24 +15,34 @@ public:
     // Метод срабатывает в момент загрузки .arx плагина в память AutoCAD
     virtual AcRx::AppRetCode On_kInitAppMsg(void* pkt) override {
         AcRx::AppRetCode retCode = AcRxDbxApp::On_kInitAppMsg(pkt);
-        ArxBridgeCore::Initialize();
-        // Код стал чистым: убрали дублирующиеся префиксы ArxBridge::
-        PropertyEngine::Initialize();
-        PropertyReactor::getInstance().startMonitoring();
-        BridgeManager::Initialize();
+
+        ArxBridge::ArxBridgeCore::Initialize();
+
+        // 🚀 ОПТИМИЗАЦИЯ: Напрямую инициализируем менеджер кэша ОЗУ в обход транзитных методов
+        ArxBridge::DocumentCacheManager::Initialize();
+
+        // Запуск реакторов мониторинга документов и объектов чертежа
+        ArxBridge::PropertyReactor::getInstance().startMonitoring();
+
+        ArxBridge::BridgeManager::Initialize();
+
         return retCode;
     }
 
     // Метод срабатывает при принудительной выгрузке плагина пользователем
     virtual AcRx::AppRetCode On_kUnloadAppMsg(void* pkt) override {
-        // Чисто тушим мониторинг чертежей dwg и полностью очищаем ОЗУ от долгоживущего кэша
-        PropertyReactor::getInstance().stopMonitoring();
-        PropertyEngine::Terminate();
-        BridgeManager::Terminate();
+        // Чисто тушим мониторинг чертежей dwg
+        ArxBridge::PropertyReactor::getInstance().stopMonitoring();
 
-        // Отписываемся от панели свойств
-        ArxBridgeCore::UnregisterAllProperties();
-        ArxBridgeCore::Terminate();
+        // 🚀 ОПТИМИЗАЦИЯ: Напрямую очищаем ОЗУ от долгоживущего кэша документов
+        ArxBridge::DocumentCacheManager::Terminate();
+
+        ArxBridge::BridgeManager::Terminate();
+
+        // Отписываемся от палитры свойств AutoCAD (OPM)
+        ArxBridge::ArxBridgeCore::UnregisterAllProperties();
+        ArxBridge::ArxBridgeCore::Terminate();
+
         return AcRxDbxApp::On_kUnloadAppMsg(pkt);
     }
 

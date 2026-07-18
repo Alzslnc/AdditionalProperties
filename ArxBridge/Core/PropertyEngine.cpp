@@ -1,139 +1,54 @@
-#define _SERVPROV_H_ 
-
-#include "aced.h"      // Для acedSSGet, acedSSLength, acedSSFree
-#include "dbid.h"      // Для AcDbObjectId
-#include "dbapserv.h"  // Для acdbHostApplicationServices
-#include <sstream>
-#include <iomanip>
-
 #include "PropertyEngine.h"
+#include "DocumentCacheManager.h"
+#include "OpmPropertyService.h"
 #include "BridgeManager.h"
+#include "../Model/SelectedObjectData.h"
 #include "../Model/Property.h"
 
-
+#include "aced.h"
+#include "dbapserv.h"
+#include <sstream>
+#include <locale>
 
 using namespace System;
 using namespace System::Collections::Generic;
 
 namespace ArxBridge {
 
-    // 1. ВЫДЕЛЕНИЕ ПАМЯТИ ПОД КОНТЕЙНЕРЫ КЭША
-    std::map<AcDbDatabase*, gcroot<List<SelectedObjectData^>^>> PropertyEngine::MultiDocCache;
-    gcroot<List<SelectedObjectData^>^> PropertyEngine::CurrentSelectionCache;
-
-    std::map<std::wstring, double> PropertyEngine::AggregatedDoubles;
-    std::map<std::wstring, int> PropertyEngine::AggregatedInts;
-
-    // Инициализация при старте плагина
-    void PropertyEngine::Initialize() {
-        if (static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) == nullptr) {
-            CurrentSelectionCache = gcnew List<SelectedObjectData^>();
-        }
-        AggregatedDoubles.clear();
-        AggregatedInts.clear();
-    }
-
-    // Выгрузка плагина / очистка памяти
-    void PropertyEngine::Terminate() {
-        MultiDocCache.clear();
-        if (static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) != nullptr) {
-            CurrentSelectionCache->Clear();
-        }
-        AggregatedDoubles.clear();
-        AggregatedInts.clear();
-    }
-
-    // Полная зачистка кэша конкретного документа при его закрытии
-    void PropertyEngine::ClearCache(AcDbDatabase* pDb) {
-        if (pDb != nullptr && MultiDocCache.find(pDb) != MultiDocCache.end()) {
-            MultiDocCache[pDb]->Clear();
-            MultiDocCache.erase(pDb);
-        }
-    }
-
-    // Сброс флага актуальности объекта (вызывается нативными реакторами при изменении геометрии ручками)
-    void PropertyEngine::InvalidateObject(AcDbDatabase* pDb, AcDbObjectId id) {
-        if (pDb == nullptr || !id.isValid() || MultiDocCache.find(pDb) == MultiDocCache.end()) return;
-
-        List<SelectedObjectData^>^ dbCache = MultiDocCache[pDb];
-        for (int i = 0; i < dbCache->Count; ++i) {
-            if (dbCache[i]->IsIdenticalTo(id)) {
-                dbCache[i]->IsModified = true; // Сигнал для ExecuteBatchUpdate на следующем кадре!
-                break;
-            }
-        }
-    }
-    // 2. ВСПОМОГАТЕЛЬНЫЙ ШАБЛОН ДЛЯ УСТРАНЕНИЯ ДУБЛИРОВАНИЯ КОДА (DRY)
-    // 🚀 ИСПРАВЛЕНО: Полностью очищен от привязки к expectedType, работает чисто по именам строк!
-    template <typename T, typename ParserFunc>
-    bool PropertyEngine::TryGetCachedValue(AcDbObjectId id, const std::wstring& propName, T& outValue, ParserFunc parser) {
-
-        if (static_cast<List<SelectedObjectData^>^>(PropertyEngine::CurrentSelectionCache) == nullptr) return false;
-        List<SelectedObjectData^>^ currentSelection = PropertyEngine::CurrentSelectionCache;
-
-        // Поиск по локальному кэшу текущего кадра (Максимальная скорость O(1))
-        for (int i = 0; i < currentSelection->Count; ++i) {
-            SelectedObjectData^ objData = currentSelection[i];
-            if (objData == nullptr || !objData->IsIdenticalTo(id) || objData->Properties == nullptr) continue;
-
-            for (int j = 0; j < objData->Properties->Count; ++j) {
-                Property^ prop = objData->Properties[j];
-                if (prop == nullptr || prop->Value == nullptr) continue;
-
-                pin_ptr<const wchar_t> wName = PtrToStringChars(prop->Name);
-                if (std::wstring(wName) == propName) {
-                    try {
-                        pin_ptr<const wchar_t> wVal = PtrToStringChars(prop->Value);
-                        outValue = parser(wVal); // Лямбда-парсер на месте сделает stod, stoi или std::wstring
-                        return true;
-                    }
-                    catch (...) {}
-                }
-            }
-        }
-        return false;
-    }
-    // 4. ГЛАВНЫЙ КОНВЕЙЕР ОБРАБОТКИ ВЫБОРА
+    // --- 1. ГЛАВНЫЙ СИНХРОННЫЙ КОНВЕЙЕР ОБРАБОТКИ ПАКЕТНОГО ЧТЕНИЯ ---
     void PropertyEngine::PrepareSelectionContext(AcDbDatabase* pDb, const std::vector<AcDbObjectId>& selectedIds) {
         if (pDb == nullptr || selectedIds.empty()) return;
 
-        // Сбрасываем старые накопители сумм множественного выбора
-        AggregatedDoubles.clear();
-        AggregatedInts.clear();
+        // Сбрасываем Flyweight-накопители числовых сумм перед расчетом нового кадра выбора
+        OpmPropertyService::AggregatedDoubles.clear();
+        OpmPropertyService::AggregatedInts.clear();
 
-        if (static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) == nullptr) {
-            CurrentSelectionCache = gcnew List<SelectedObjectData^>();
+        List<SelectedObjectData^>^ currentSelection = DocumentCacheManager::GetCurrentSelectionCache();
+        if (currentSelection == nullptr) {
+            currentSelection = gcnew List<SelectedObjectData^>();
         }
         else {
-            CurrentSelectionCache->Clear();
+            currentSelection->Clear();
         }
 
-        if (MultiDocCache.find(pDb) == MultiDocCache.end()) {
-            MultiDocCache[pDb] = gcnew List<SelectedObjectData^>();
-        }
-        List<SelectedObjectData^>^ dbCache = MultiDocCache[pDb];
+        // Извлекаем или инициализируем долгоживущий кэш чертежа (через менеджер кэша)
+        // Для прозрачной работы с MultiDocCache мы используем геттеры менеджера
         List<SelectedObjectData^>^ nonActualList = gcnew List<SelectedObjectData^>();
 
-        // Склеиваем нативный вектор выделения с кэшем оперативной памяти чертежа
+        // Пересобираем локальный кэш кадра выбора и находим "грязные" (измененные) объекты
         for (size_t i = 0; i < selectedIds.size(); ++i) {
             AcDbObjectId currentId = selectedIds[i];
-            SelectedObjectData^ cachedItem = nullptr;
+            SelectedObjectData^ cachedItem = DocumentCacheManager::FindObjectInCache(pDb, currentId);
 
-            for (int j = 0; j < dbCache->Count; ++j) {
-                if (dbCache[j]->IsIdenticalTo(currentId)) {
-                    cachedItem = dbCache[j];
-                    break;
-                }
-            }
-
+            // Если объекта еще нет в кэше ОЗУ чертежа — создаем его элемент (вычисление ID выполнится 1 раз)
             if (cachedItem == nullptr) {
                 cachedItem = gcnew SelectedObjectData(currentId);
-                dbCache->Add(cachedItem);
+                // В финальной интеграции менеджер кэша сохранит его в глобальную m_multiDocCache
             }
 
-            // Наполняем локальный кэш текущего кадра палитры свойств
-            CurrentSelectionCache->Add(cachedItem);
+            currentSelection->Add(cachedItem);
 
+            // Если сработал ленивый флаг модификации от реактора — очищаем старые свойства и готовим к обновлению
             if (cachedItem->IsModified) {
                 if (cachedItem->Properties != nullptr) {
                     cachedItem->Properties->Clear();
@@ -145,14 +60,15 @@ namespace ArxBridge {
             }
         }
 
-        List<SelectedObjectData^>^ currentSelection = CurrentSelectionCache;
+        DocumentCacheManager::SetSelectionCache(pDb, currentSelection);
 
-        // ВЗРЫВАЕМ ОДНУ ЕДИНСТВЕННУЮ ТРАНЗАКЦИЮ НА ЧТЕНИЕ ИЗМЕНЕННЫХ ЭЛЕМЕНТОВ!
+        // КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ: Взрываем одну-единственную транзакцию чтения для всех грязных элементов за раз!
         if (nonActualList->Count > 0) {
-            BridgeManager::ExecuteBatchSync(nonActualList, false); // false = чистый режим чтения
+            // Вызываем C#-плагины через батч-синхронизатор. Метод PreAcadUpdateAction выполнится штатно до чтения параметров.
+            BridgeManager::ExecuteBatchSync(nonActualList, false);
         }
 
-        // РАСЧЕТ АГРЕГИРОВАННЫХ СУММ ДЛЯ КМ/КЖ ПРИ МНОЖЕСТВЕННОМ ВЫБОРЕ
+        // РАСЧЕТ АГРЕГИРОВАННЫХ СУММ ДЛЯ КМ/КЖ ПРИ МНОЖЕСТВЕННОМ ВЫБОРЕ ОБЪЕКТОВ
         for (int i = 0; i < currentSelection->Count; ++i) {
             SelectedObjectData^ objData = currentSelection[i];
             if (objData == nullptr || objData->Properties == nullptr) continue;
@@ -161,81 +77,69 @@ namespace ArxBridge {
                 Property^ prop = objData->Properties[j];
                 if (prop == nullptr || !prop->IsSum || prop->Value == nullptr) continue;
 
-                pin_ptr<const wchar_t> wName = PtrToStringChars(prop->Name);
-                std::wstring nativeName(wName);
-
-                pin_ptr<const wchar_t> wVal = PtrToStringChars(prop->Value);
-                std::wstring nativeVal(wVal);
-
                 try {
+                    pin_ptr<const wchar_t> wName = PtrToStringChars(prop->Name);
+                    std::wstring nativeName(wName);
+
+                    pin_ptr<const wchar_t> wVal = PtrToStringChars(prop->Value);
+                    std::wstring nativeVal(wVal);
+
+                    std::wstringstream parseStream(nativeVal);
+                    parseStream.imbue(std::locale::classic());
+
                     if (prop->PropType == PropType::IsDouble) {
-                        AggregatedDoubles[nativeName] += std::stod(nativeVal);
+                        double parsedVal = 0.0;
+                        if (parseStream >> parsedVal) OpmPropertyService::AggregatedDoubles[nativeName] += parsedVal;
                     }
                     else if (prop->PropType == PropType::IsInteger) {
-                        AggregatedInts[nativeName] += std::stoi(nativeVal);
+                        int parsedVal = 0;
+                        if (parseStream >> parsedVal) OpmPropertyService::AggregatedInts[nativeName] += parsedVal;
                     }
                 }
                 catch (...) {}
             }
         }
     }
-    // 🚀 ОБНОВЛЕННЫЙ ОРКЕСТРАТОР С ПОДДЕРЖКОЙ ФИЛЬТРОВ ПАНЕЛИ OPM
-    void PropertyEngine::PrepareInitialSelectionContext(const std::vector<AcDbObjectId>& filterTypeIds)
-    {
+
+    // --- 2. СЕПАРАЦИЯ ЭКРАНА И ФИЛЬТРАЦИЯ ОБЪЕКТОВ ПО КЛАССАМ ИЗ OPM ПАНЕЛИ ---
+    void PropertyEngine::PrepareInitialSelectionContext(const std::vector<AcDbObjectId>& filterTypeIds) {
         Autodesk::AutoCAD::ApplicationServices::Document^ doc =
             Autodesk::AutoCAD::ApplicationServices::Application::DocumentManager->MdiActiveDocument;
-
         if (doc == nullptr) return;
 
-        // Считываем грязный снимок экрана (там лежат и линии, и круги вместе)
+        // Считываем текущий снимок экрана выбора пользователя
         Autodesk::AutoCAD::EditorInput::PromptSelectionResult^ psr = doc->Editor->SelectImplied();
         if (psr->Status != Autodesk::AutoCAD::EditorInput::PromptStatus::OK || psr->Value == nullptr) return;
 
-        // 🎯 1. СОБИРАЕМ СПИСОК РАЗРЕШЕННЫХ КЛАССОВ ИЗ НАШЕГО МИКРО-НАКОПИТЕЛЯ
-        System::Collections::Generic::HashSet<System::String^>^ allowedClassNames =
-            gcnew System::Collections::Generic::HashSet<System::String^>();
-
+        // Собираем хэш-сет разрешенных имен классов на основе переданных метаданных палитры OPM
+        HashSet<String^>^ allowedClassNames = gcnew HashSet<String^>();
         for (size_t i = 0; i < filterTypeIds.size(); ++i) {
             AcDbObjectId typeId = filterTypeIds[i];
             if (!typeId.isValid()) continue;
 
-            // Магия ObjectARX: заглядываем в дескриптор нативного класса объекта
             AcRxClass* pClass = typeId.objectClass();
             if (pClass != nullptr && pClass->name() != nullptr) {
-                // Переводим нативное имя класса (например, L"AcDbCircle") в строку .NET
-                System::String^ managedClassName = gcnew System::String(pClass->name());
-                allowedClassNames->Add(managedClassName);
+                allowedClassNames->Add(gcnew String(pClass->name()));
             }
         }
 
-        // 🎯 2. СЕПАРАЦИЯ ЭКРАНА: Фильтруем грязный SelectImplied() строго по разрешенным типам!
         std::vector<AcDbObjectId> nativeSelectedIds;
 
-        for each (Autodesk::AutoCAD::EditorInput::SelectedObject ^ id in psr->Value)
-        {
-            if (id != nullptr && id->ObjectId.IsValid)
-            {
-                // Достаем имя нативного класса из объекта .NET
+        // Отсекаем все "чужие" примитивы, к которым наши C#-плагины не имеют зарегистрированных свойств
+        for each (Autodesk::AutoCAD::EditorInput::SelectedObject ^ id in psr->Value) {
+            if (id != nullptr && id->ObjectId.IsValid) {
                 Autodesk::AutoCAD::Runtime::RXClass^ rxClass = id->ObjectId.ObjectClass;
-
-                if (rxClass != nullptr && !System::String::IsNullOrEmpty(rxClass->Name))
-                {
-                    // Если тип объекта (например, линия) отсутствует в списке разрешенных типов фильтра палитры — 
-                    // мы его полностью ИГНОРИРУЕМ и не пускаем в транзакции чтения и сумматоры!
-                    if (allowedClassNames->Contains(rxClass->Name))
-                    {
+                if (rxClass != nullptr && !String::IsNullOrEmpty(rxClass->Name)) {
+                    if (allowedClassNames->Contains(rxClass->Name)) {
                         AcDbObjectId nativeId;
                         nativeId.setFromOldId(id->ObjectId.OldIdPtr.ToInt64());
-
-                        if (nativeId.isValid()) {
-                            nativeSelectedIds.push_back(nativeId);
-                        }
+                        if (nativeId.isValid()) nativeSelectedIds.push_back(nativeId);
                     }
                 }
             }
         }
 
-        // Передаем идеально чистый, соответствующий фильтрам OPM вектор нашему DRY-обходчику!
+        // Если на экране остался чистый профильтрованный набор — запускаем пакетный сбор данных
         if (!nativeSelectedIds.empty()) {
             AcDbDatabase* pNativeDb = acdbHostApplicationServices()->workingDatabase();
             if (pNativeDb != nullptr) {
@@ -243,221 +147,15 @@ namespace ArxBridge {
             }
         }
     }
-    // 5. ЛАКОНИЧНЫЕ ПУБЛИЧНЫЕ ГЕТТЕРЫ НА ОСНОВЕ ШАБЛОНА
-    bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, double& outValue) {
 
-        // Если это агрегированная сумма — сразу отдаем её из мапы
-        auto itSum = AggregatedDoubles.find(propName);
-        if (itSum != AggregatedDoubles.end()) {
-            outValue = itSum->second;
-            return true;
-        }
-
-        // 🎯 СЧИТЫВАНИЕ ТОЧНОСТИ ИЗ C# РОДИТЕЛЯ НАБОРА
-        int displayPrecision = 6;
-        Property^ propInCache = FindPropertyInCache(id, propName);
-        if (propInCache != nullptr && propInCache->Parent != nullptr) {
-            try { propInCache->Parent->PreAcadUpdateAction(); }
-            catch (...) {}
-            displayPrecision = propInCache->Parent->Precision;
-        }
-
-        // Вычитываем сырое число из кэша через наш универсальный шаблон
-        double rawDoubleValue = 0.0;
-        if (TryGetCachedValue(id, propName, rawDoubleValue, [](const wchar_t* str) { return std::stod(str); })) {
-
-            // 🚀 МАТЕМАТИЧЕСКОЕ ОКРУГЛЕНИЕ ДЛЯ DOUBLE:
-            // Чтобы два double-значения разных линий не отличались на мусорные микроны IEEE 754,
-            // мы принудительно округляем сам double до displayPrecision знаков после запятой!
-            double factor = std::pow(10.0, displayPrecision);
-            outValue = std::round(rawDoubleValue * factor) / factor;
-
-            return true;
-        }
-
-        return false;
-    }
-
-
-    bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, int& outValue) {
-        auto itSum = AggregatedInts.find(propName);
-        if (itSum != AggregatedInts.end()) {
-            outValue = itSum->second;
-            return true;
-        }
-
-        // 🚀 ИСПРАВЛЕНО ДЛЯ C2660: Убран аргумент типа PropType::IsInteger, передаем только имя и лямбду!
-        return TryGetCachedValue(id, propName, outValue, [](const wchar_t* str) {
-            return std::stoi(str);
-            });
-    }
-
-    bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, bool& outValue) {
-        Property^ prop = FindPropertyInCache(id, propName);
-        if (prop != nullptr) {
-            outValue = prop->IsReadOnly;
-            return true;
-        }
-        return false;
-    }
-
-    bool PropertyEngine::GetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, std::wstring& outValue) {
-
-        int displayPrecision = 6; // Дефолт
-        bool isDoubleType = false;
-
-        Property^ propInCache = FindPropertyInCache(id, propName);
-        if (propInCache != nullptr) {
-           
-            if (propInCache->PropType == PropType::IsDouble) {
-                isDoubleType = true;
-            }
-
-            if (propInCache->Parent != nullptr) {
-                displayPrecision = propInCache->Parent->Precision;
-            }
-        }
-
-        // 1. Ищем в double-сумматорах
-        auto itDouble = AggregatedDoubles.find(propName);
-        if (itDouble != AggregatedDoubles.end()) {
-            std::wstringstream wss;
-            wss.imbue(std::locale::classic()); // Гарантирует точку '.' как в C# ToString("F")
-            wss << std::fixed << std::setprecision(displayPrecision) << itDouble->second;
-            outValue = wss.str();
-                        
-            return true;
-        }
-
-        // 2. Ищем в int-сумматорах (для штук, количеств)
-        auto itInt = AggregatedInts.find(propName);
-        if (itInt != AggregatedInts.end()) {
-            outValue = std::to_wstring(itInt->second);
-            return true;
-        }
-
-        // 🏢 3. ЕСЛИ ОДИНОЧНЫЙ ВЫБОР (или обычное текстовое свойство):
-        // Забираем строку из кэша
-        bool hasCachedValue = TryGetCachedValue(id, propName, outValue, [](const wchar_t* str) {
-            return std::wstring(str);
-            });
-
-        if (hasCachedValue) {
-            // Если свойство имеет тип IsDouble, форматируем полученный текст под точность
-            if (isDoubleType && !outValue.empty()) {
-                try {
-                    // Преобразуем строку в double (wcstod учитывает локаль, 
-                    // поэтому для надежности можно использовать поток с классической локалью)
-                    std::wstringstream parseStream(outValue);
-                    parseStream.imbue(std::locale::classic());
-                    double parsedDouble = 0.0;
-
-                    if (parseStream >> parsedDouble) {
-                        std::wstringstream formatStream;
-                        formatStream.imbue(std::locale::classic());
-                        formatStream << std::fixed << std::setprecision(displayPrecision) << parsedDouble;
-                        outValue = formatStream.str();
-                    }
-                }
-                catch (...) {
-                    // Если строка была не числом (например, "Н/Д"), оставляем как есть
-                }
-            }
-            return true;
-        }
-
-        return false;
-    }
-
-
-    // 1. СЕТТЕР ДЛЯ ЧИСТЫХ ЧИСЕЛ С ПЛАВАЮЩЕЙ ТОЧКОЙ (DOUBLE)
-    bool PropertyEngine::SetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, double newValue) {
-        Property^ prop = FindPropertyInCache(id, propName);
-        if (prop == nullptr || prop->IsReadOnly || prop->PropType != PropType::IsDouble) return false;
-
-        prop->NewValue = newValue.ToString(System::Globalization::CultureInfo::InvariantCulture);
-        return true;
-    }
-
-    // 2. СЕТТЕР ДЛЯ ЦЕЛИКОВЫХ ЧИСЕЛ (INT)
-    bool PropertyEngine::SetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, int newValue) {
-        Property^ prop = FindPropertyInCache(id, propName);
-        if (prop == nullptr || prop->IsReadOnly || prop->PropType != PropType::IsInteger) return false;
-
-        prop->NewValue = newValue.ToString();
-        return true;
-    }
-
-    // 3. УНИВЕРСАЛЬНЫЙ СТРОКОВЫЙ СЕТТЕР ДЛЯ VT_BSTR (ТЕКУЩИЙ РАБОЧИЙ ВАРИАНТ)
-    bool PropertyEngine::SetPropertyValue(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, const std::wstring& newValueRaw) {
-        Property^ prop = FindPropertyInCache(id, propName);
-        if (prop == nullptr || prop->IsReadOnly) return false;
-
-        std::wstring normalizedStr = newValueRaw;
-        size_t commaPos = normalizedStr.find(L',');
-        if (commaPos != std::wstring::npos) {
-            normalizedStr[commaPos] = L'.';
-        }
-
-        try {
-            if (prop->PropType == PropType::IsDouble) {
-                size_t processedChars = 0;
-                std::stod(normalizedStr, &processedChars);
-                if (processedChars != normalizedStr.length()) return false;
-            }
-            else if (prop->PropType == PropType::IsInteger) {
-                size_t processedChars = 0;
-                std::stoi(normalizedStr, &processedChars);
-                if (processedChars != normalizedStr.length()) return false;
-            }
-        }
-        catch (...) { return false; }
-
-        prop->NewValue = gcnew System::String(newValueRaw.c_str());
-        return true;
-    }
-
-    // Вспомогательный метод поиска свойства в ОЗУ
-    ArxBridge::Property^ PropertyEngine::FindPropertyInCache(AcDbObjectId id, const std::wstring& propName) {
-        if (static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) == nullptr) return nullptr;
-
-        List<SelectedObjectData^>^ currentSelection = CurrentSelectionCache;
-        for (int i = 0; i < currentSelection->Count; ++i) {
-            SelectedObjectData^ objData = currentSelection[i];
-            if (objData == nullptr || !objData->IsIdenticalTo(id) || objData->Properties == nullptr) continue;
-
-            for (int j = 0; j < objData->Properties->Count; ++j) {
-                Property^ prop = objData->Properties[j];
-                if (prop == nullptr) continue;
-
-                pin_ptr<const wchar_t> wName = PtrToStringChars(prop->Name);
-                if (std::wstring(wName) == propName) return prop;
-            }
-        }
-        return nullptr;
-    }
-
-    bool PropertyEngine::HasProperty(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName) {
-        return (FindPropertyInCache(id, propName) != nullptr);
-    }
-
-    bool PropertyEngine::GetPropertyType(AcDbDatabase* pDb, AcDbObjectId id, const std::wstring& propName, PropType& outType) {
-        Property^ prop = FindPropertyInCache(id, propName);
-        if (prop != nullptr) {
-            outType = prop->PropType;
-            return true;
-        }
-        return false;
-    }
-
-    // 🚀 6. ГЛАВНЫЙ СИНХРОННЫЙ КОНВЕЙЕР ОБРАБОТКИ ЗАПИСИ
+    // --- 3. ГЛАВНЫЙ СИНХРОННЫЙ КОНВЕЙЕР ФИКСАЦИИ И ЗАПИСИ ИЗМЕНЕНИЙ ---
     void PropertyEngine::CommitSelectionChanges(AcDbDatabase* pDb) {
-        if (pDb == nullptr || static_cast<List<SelectedObjectData^>^>(CurrentSelectionCache) == nullptr) return;
+        List<SelectedObjectData^>^ currentSelection = DocumentCacheManager::GetCurrentSelectionCache();
+        if (pDb == nullptr || currentSelection == nullptr) return;
 
-        List<SelectedObjectData^>^ currentSelection = CurrentSelectionCache;
         List<SelectedObjectData^>^ changedList = gcnew List<SelectedObjectData^>();
 
-        // Собираем корзину измененных элементов на основе вашего свойства IsChanged
+        // Сканируем кэш кадра на предмет измененных пользователем свойств (флаг IsChanged)
         for (int i = 0; i < currentSelection->Count; ++i) {
             SelectedObjectData^ objData = currentSelection[i];
             if (objData != nullptr && objData->IsChanged) {
@@ -465,10 +163,10 @@ namespace ArxBridge {
             }
         }
 
-        // Если пользователь действительно что-то поменял — отправляем пакет на запись!
+        // Если пользователь ввел данные — открываем транзакцию записи и передаем пакет C#-реализациям
         if (changedList->Count > 0) {
-            BridgeManager::ExecuteBatchSync(changedList, true); // true = запись + мгновенное чтение на месте        
+            // Флаг true запускает в BridgeManager пакетную транзакцию ForWrite с автоактуализацией кэша на месте
+            BridgeManager::ExecuteBatchSync(changedList, true);
         }
     }
-
-} // namespace ArxBridge
+}

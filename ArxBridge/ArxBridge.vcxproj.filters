@@ -18,13 +18,7 @@
     <ClCompile Include="Core\ArxBridgeCore.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Model\SelectedDataClass.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="Model\Property.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="Model\Support.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="Core\PropertyEngine.cpp">
@@ -42,10 +36,16 @@
     <ClCompile Include="Core\main.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Model\ModelSupport.cpp">
+    <ClCompile Include="Core\DynamicPropertyNativeBase.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="Core\DynamicPropertyNativeBase.cpp">
+    <ClCompile Include="Core\DocumentCacheManager.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\OpmPropertyService.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\DynamicPropertyBridge.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>
@@ -57,9 +57,6 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Model\Property.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
-    <ClInclude Include="Model\Support.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="Core\PropertyEngine.h">
@@ -74,10 +71,19 @@
     <ClInclude Include="Core\BridgeManager.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Model\ModelSupport.h">
+    <ClInclude Include="Core\DynamicPropertyNativeBase.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Core\DynamicPropertyNativeBase.h">
+    <ClInclude Include="Model\Enums.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Model\PropertyMeta.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\DocumentCacheManager.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="Core\OpmPropertyService.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
