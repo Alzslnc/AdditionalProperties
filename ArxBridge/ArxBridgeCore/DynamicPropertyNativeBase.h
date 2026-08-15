@@ -38,6 +38,8 @@ public:
     // Объявляем виртуальный нативный метод извлечения ID
     virtual bool GetObjectIdFromIUnknown(IUnknown* pUnk, AcDbObjectId* pOutId);
 
+    // Возвращает GUID свойства, используя стандартный тип из windows.h
+    bool GetPropertyGUID(GUID* pGuid);
     // --- Базовый IUnknown ---
     STDMETHODIMP QueryInterface(REFIID riid, void** ppvRaw) override;
     STDMETHODIMP_(ULONG) AddRef() override;

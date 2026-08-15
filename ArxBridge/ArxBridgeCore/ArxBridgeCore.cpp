@@ -39,7 +39,7 @@ namespace ArxBridge {
 
         IPropertyManager2* pPropMan = (IPropertyManager2*)GET_OPMPROPERTY_MANAGER(AcDbEntity::desc());
         if (pPropMan == nullptr) return;
-
+              
         for each (System::String ^ managedClassName in targetClasses)
         {
             if (System::String::IsNullOrEmpty(managedClassName)) continue;
@@ -66,7 +66,7 @@ namespace ArxBridge {
                 if (pTargetPropMan != nullptr) {
                     pTargetPropMan->AddProperty(pUnkProp);
                 }
-                m_registeredProperties->push_back(pUnkProp);
+                m_registeredProperties->push_back(pUnkProp);               
             }
         }
     }

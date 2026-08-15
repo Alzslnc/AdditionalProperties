@@ -4,7 +4,9 @@
 // Конструктор: запоминаем указатель на нативный базовый мост
 RealCOMProperty::RealCOMProperty(DynamicPropertyNativeBase* pBridge)
     : m_pBridge(pBridge)
-{}
+{
+    ::CoCreateGuid(&m_propertyGuid);
+}
 
 /// <summary>
 /// Главный диспетчер интерфейсов COM. Отвечает на запросы AutoCAD

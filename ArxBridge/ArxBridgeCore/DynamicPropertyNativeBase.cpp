@@ -70,3 +70,16 @@ ULONG __stdcall DynamicPropertyNativeBase::Release() {
     if (res == 0) delete this;
     return res;
 }
+
+bool DynamicPropertyNativeBase::GetPropertyGUID(GUID* pGuid) {
+    if (pGuid == nullptr) return false;
+
+    // Если реальный объект существует, безопасно запрашиваем у него GUID
+    if (m_pRealProperty != nullptr) {
+        // Вызываем родной метод GetGUID у вашего скрытого класса-реализации
+        if (SUCCEEDED(m_pRealProperty->GetGUID(pGuid))) {
+            return true;
+        }
+    }
+    return false;
+}

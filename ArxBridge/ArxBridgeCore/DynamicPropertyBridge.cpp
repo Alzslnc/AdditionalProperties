@@ -9,7 +9,7 @@
 #include "arxHeaders.h" 
 #include "dbapserv.h"                  
 #include "dbmain.h"  
-
+#include "BridgePropertyWatcher.h"
 
 using namespace System;
 
@@ -149,6 +149,9 @@ namespace ArxBridge {
         m_pNotifySink = pSink;
         m_pNotifySink->AddRef();
 
+        // Регистрируем в нашем вочере
+        ArxBridge::BridgePropertyWatcher::getInstance().RegisterActiveContext(this, pSink);
+
         if (ArxBridgeCore::GetState() == BridgeState::Read) {
             ArxBridgeCore::SetState(BridgeState::Locked);
             if (ArxBridgeCore::m_frameSelectedIds != nullptr) {
@@ -158,6 +161,7 @@ namespace ArxBridge {
     }
 
     void DynamicPropertyBridge::OnDisconnect() {
+        ArxBridge::BridgePropertyWatcher::getInstance().UnregisterActiveContext(this);
         if (m_pNotifySink != nullptr) {
             m_pNotifySink->Release();
             m_pNotifySink = nullptr;
@@ -173,6 +177,9 @@ namespace ArxBridge {
     // ============================================================================
 
     void DynamicPropertyBridge::OnGetCurrentValueData(::IUnknown* pUnk, ::VARIANT* pVarData) {
+
+        ArxBridge::BridgePropertyWatcher::getInstance().SetInternalUpdate(false);
+        
         if (pVarData == nullptr || pUnk == nullptr) return;
         ::VariantInit(pVarData);
 
@@ -226,8 +233,11 @@ namespace ArxBridge {
     HRESULT DynamicPropertyBridge::OnSetCurrentValueData(::IUnknown* pUnk, const ::VARIANT varData) {
         if (pUnk == nullptr) return E_INVALIDARG;
 
+        ArxBridge::BridgePropertyWatcher::getInstance().SetInternalUpdate(true);
+
         // AutoCAD OPM передает текстовые данные как VT_BSTR
         if (varData.vt != VT_BSTR) return E_INVALIDARG;
+
 
         AcDbObjectId nativeId = ::AcDbObjectId::kNull;
         GetObjectIdFromIUnknown(pUnk, &nativeId);

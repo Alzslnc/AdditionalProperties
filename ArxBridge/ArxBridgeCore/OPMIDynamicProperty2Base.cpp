@@ -3,7 +3,7 @@
 
 STDMETHODIMP RealCOMProperty::GetGUID(GUID* pPropGUID) {
     if (!pPropGUID) return E_POINTER;
-    *pPropGUID = GUID_NULL;
+    *pPropGUID = m_propertyGuid;
     return S_OK;
 }
 

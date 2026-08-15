@@ -28,6 +28,9 @@
     <Filter Include="Core\Bridge">
       <UniqueIdentifier>{54718888-f8d3-4934-9681-a1bc6592e021}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Core\Engine\Reactor">
+      <UniqueIdentifier>{d101deca-2273-4f24-b2f4-80c112263a2a}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ArxBridgeCore\SelectedObjectData.cpp">
@@ -57,9 +60,6 @@
     <ClCompile Include="ArxBridgeCore\PropertyEngine.cpp">
       <Filter>Core\Engine</Filter>
     </ClCompile>
-    <ClCompile Include="ArxBridgeCore\PropertyReactor.cpp">
-      <Filter>Core\Engine</Filter>
-    </ClCompile>
     <ClCompile Include="ArxBridgeCore\DocumentCacheManager.cpp">
       <Filter>Core\Infrastructure</Filter>
     </ClCompile>
@@ -71,6 +71,21 @@
     </ClCompile>
     <ClCompile Include="ArxBridgeCore\ArxBridgeCore.cpp">
       <Filter>Core\Bridge</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\PropertyReactor.cpp">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\BridgePropertyWatcher.cpp">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\CacheInvalidationSubscription.cpp">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\OpmPaletteSubscription.cpp">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\OpmManagedBridge.cpp">
+      <Filter>Core\Engine\Reactor</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -104,9 +119,6 @@
     <ClInclude Include="ArxBridgeCore\PropertyEngine.h">
       <Filter>Core\Engine</Filter>
     </ClInclude>
-    <ClInclude Include="ArxBridgeCore\PropertyReactor.h">
-      <Filter>Core\Engine</Filter>
-    </ClInclude>
     <ClInclude Include="ArxBridgeCore\OpmPropertyService.h">
       <Filter>Core\Engine</Filter>
     </ClInclude>
@@ -118,6 +130,18 @@
     </ClInclude>
     <ClInclude Include="ArxBridgeCore\ArxBridgeCore.h">
       <Filter>Core\Bridge</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\PropertyReactor.h">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\BridgePropertyWatcher.h">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\CacheInvalidationSubscription.h">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\OpmPaletteSubscription.h">
+      <Filter>Core\Engine\Reactor</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

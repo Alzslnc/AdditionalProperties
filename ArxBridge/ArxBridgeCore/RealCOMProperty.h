@@ -13,7 +13,7 @@ class RealCOMProperty : public IDynamicProperty2, public ICategorizeProperties
 {
 private:
     DynamicPropertyNativeBase* m_pBridge;
-
+    GUID m_propertyGuid;
 public:
     RealCOMProperty(DynamicPropertyNativeBase* pBridge);
     virtual ~RealCOMProperty() = default;

@@ -6,6 +6,7 @@
 #include "PropertyEngine.h"
 #include "PropertyReactor.h"
 #include "DocumentCacheManager.h"
+#include "BridgePropertyWatcher.h"
 
 // Главный нативный класс-наследник сессии приложения AutoCAD
 class CArxBridgeApp : public AcRxDbxApp {
@@ -26,6 +27,8 @@ public:
 
         ArxBridge::BridgeManager::Initialize();
 
+      
+
         return retCode;
     }
 
@@ -39,10 +42,12 @@ public:
 
         ArxBridge::BridgeManager::Terminate();
 
+        ArxBridge::BridgePropertyWatcher::getInstance().UnregisterActiveContext(nullptr);
+
         // Отписываемся от палитры свойств AutoCAD (OPM)
         ArxBridge::ArxBridgeCore::UnregisterAllProperties();
         ArxBridge::ArxBridgeCore::Terminate();
-
+      
         return AcRxDbxApp::On_kUnloadAppMsg(pkt);
     }
 

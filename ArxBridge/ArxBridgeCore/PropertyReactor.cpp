@@ -1,6 +1,6 @@
 #include "PropertyReactor.h"
-#include "PropertyEngine.h" 
-#include "DocumentCacheManager.h"
+#include "CacheInvalidationSubscription.h" // Подписка сброса кэша БД
+#include "OpmPaletteSubscription.h"        // Подписка отслеживания изменений палитры свойств
 
 namespace {
     /// <summary>
@@ -42,6 +42,17 @@ namespace ArxBridge {
 
     void PropertyReactor::startMonitoring() {
         if (acDocManager != nullptr) {
+            // Гарантированно очищаем вектор перед наполнением
+            m_subscriptions.clear();
+
+            // САМОСТОЯТЕЛЬНО НАПОЛНЯЕМ СЕРВИС НАТИВНЫМИ ПОДПИСКАМИ ПРИ СТАРТЕ
+            // 1. Первая подписка: ваш вынесенный код сброса кэша объектов в БД [^5]
+            m_subscriptions.push_back(&CacheInvalidationSubscription::getInstance());
+
+            // 2. Вторая подписка: нативный координатор тактов для палитры OPM
+            m_subscriptions.push_back(&OpmPaletteSubscription::getInstance());
+
+            // Регистрируем нативное ядро в менеджере документов AutoCAD
             acDocManager->addReactor(this);
             UpdateAllDatabases(this, true);
         }
@@ -51,30 +62,40 @@ namespace ArxBridge {
         if (acDocManager != nullptr) {
             acDocManager->removeReactor(this);
             UpdateAllDatabases(this, false);
+
+            // Очищаем вектор подписок при остановке, разрывая связи
+            m_subscriptions.clear();
         }
     }
 
     void PropertyReactor::documentCreated(AcApDocument* pDoc) {
         if (pDoc && pDoc->database()) {
             pDoc->database()->addReactor(this);
+
+            // Транслируем событие во все зарегистрированные нативные подписки
+            for (auto* sub : m_subscriptions) {
+                if (sub) sub->OnDocumentCreated(pDoc);
+            }
         }
     }
 
     void PropertyReactor::documentToBeDestroyed(AcApDocument* pDoc) {
         if (pDoc && pDoc->database()) {
             pDoc->database()->removeReactor(this);
-            // КРИТИЧЕСКИ ВАЖНО: Уничтожаем пакетный кэш закрываемого чертежа для защиты от утечек ОЗУ
-            DocumentCacheManager::ClearCache(pDoc->database());
+        }
+
+        // Транслируем событие уничтожения документа во все подписки (для очистки контекстов и кэшей чертежа)
+        for (auto* sub : m_subscriptions) {
+            if (sub) sub->OnDocumentToBeDestroyed(pDoc);
         }
     }
 
     void PropertyReactor::objectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) {
-        if (pDb && pObj) {
-            AcDbDatabase* pModDb = const_cast<AcDbDatabase*>(pDb);
-
-            // СЕРДЦЕ ЛЕНИВОЙ АКТУАЛИЗАЦИИ: 
-            // Точечно взводим флаг IsModified = true для этого объекта в пакетном кэше конкретного чертежа.
-            DocumentCacheManager::InvalidateObject(pModDb, pObj->objectId());
+        // Транслируем нативное событие модификации объекта базы данных во все подписки пакета [^5].
+        // CacheInvalidationSubscription взведет сброс кэша, а OpmPaletteSubscription — зафиксирует изменение для UI.
+        for (auto* sub : m_subscriptions) {
+            if (sub) sub->OnObjectModified(pDb, pObj);
         }
     }
+
 } // namespace ArxBridge
