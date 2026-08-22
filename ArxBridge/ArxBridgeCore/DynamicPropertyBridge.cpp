@@ -193,18 +193,7 @@ namespace ArxBridge {
             // 📥 ТАКТ 1. ФИКСАЦИЯ ИЗМЕНЕНИЙ (Если пользователь только что нажал Enter/сменил фокус)
             if (currentState == BridgeState::Write) {                
                 PropertyEngine::CommitSelectionChanges(nativeId.database());
-                ArxBridgeCore::SetState(BridgeState::Locked);
-
-                if (m_pNotifySink != nullptr) {
-                    static const GUID IID_IDynamicPropertyNotify2 = { 0x5F228E11, 0x53D2, 0x473d, { 0x9C, 0x21, 0xBC, 0x20, 0xD0, 0x0C, 0x44, 0x65 } };
-                    void* pNotify2 = nullptr;
-                    if (SUCCEEDED(m_pNotifySink->QueryInterface(IID_IDynamicPropertyNotify2, &pNotify2))) {
-                        typedef void(__stdcall* OnChangedFunc)(void*, void*);
-                        OnChangedFunc* vtable = *(OnChangedFunc**)pNotify2;
-                        vtable[0](pNotify2, this); // Уведомляем палитру об успешном обновлении
-                        ((::IUnknown*)pNotify2)->Release();
-                    }
-                }
+                ArxBridgeCore::SetState(BridgeState::Locked);                
             }
 
             // 📥 ТАКТ 2. УМНАЯ ЛЕНИВАЯ ИНИЦИАЛИЗАЦИЯ (Срабатывает только для точечного Тултипа)
@@ -255,16 +244,6 @@ namespace ArxBridge {
                 // заблокирует документ и вызовет пакетный коммит изменений в базу данных!
                 ArxBridgeCore::SetState(BridgeState::Write);
 
-                if (m_pNotifySink != nullptr) {
-                    static const GUID IID_IDynamicPropertyNotify2 = { 0x5F228E11, 0x53D2, 0x473d, { 0x9C, 0x21, 0xBC, 0x20, 0xD0, 0x0C, 0x44, 0x65 } };
-                    void* pNotify2 = nullptr;
-                    if (SUCCEEDED(m_pNotifySink->QueryInterface(IID_IDynamicPropertyNotify2, &pNotify2))) {
-                        typedef void(__stdcall* OnChangedFunc)(void*, void*);
-                        OnChangedFunc* vtable = *(OnChangedFunc**)pNotify2;
-                        vtable[0](pNotify2, this); // Сигнализируем палитре, что данные изменились
-                        ((::IUnknown*)pNotify2)->Release();
-                    }
-                }
                 return S_OK;
             }
         }

@@ -18,10 +18,24 @@ public:
 
     void OnModelessOperationEnded(System::Object^ sender, Autodesk::AutoCAD::ApplicationServices::ModelessOperationEventArgs^ e) {
 
-        // 1. Извлекаем нативный указатель на вектор из управляемого ядра ArxBridgeCore
+        if (ArxBridge::ArxBridgeCore::m_frameSelectedIds == nullptr) return;
+
+        // Вместо прямого вызова просто подписываемся на событие Idle.
+        // Как только палитра закончит ввод, а AutoCAD завершит коммит транзакции, 
+        // управление мгновенно перейдет в OnAutoCADIdle.
+        Autodesk::AutoCAD::ApplicationServices::Application::Idle +=
+            gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADIdle);       
+    }
+
+    void OnAutoCADIdle(System::Object^ sender, System::EventArgs^ e) {
+        // 1. Сразу же отписываемся, чтобы это сработало строго один раз!
+        Autodesk::AutoCAD::ApplicationServices::Application::Idle -=
+            gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADIdle);
+
+        // 2. Извлекаем сохраненные ID (как вы и делали)
         const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
 
-        // 2. Пробрасываем его в нативную подписку палитры свойств
+        // 3. Безопасно пинаем палитру — теперь база данных гарантированно свободна
         ArxBridge::OpmPaletteSubscription::getInstance().NotifyModelessOperationEnded(pNativeIds);
     }
 
