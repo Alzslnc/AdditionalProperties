@@ -4,45 +4,52 @@
 
 using namespace Autodesk::AutoCAD::ApplicationServices;
 
-public ref class OpmManagedBridge {
+public ref class OpmManagedBridge : public System::IDisposable {
 private:
-    // ИСПРАВЛЕНО 1: Указали точный тип делегата, который требует AutoCAD [4]
     Autodesk::AutoCAD::ApplicationServices::ModelessOperationEventHandler^ m_pModelessHandler;
+    // Сохраняем делегаты менеджера документов, чтобы гарантировать точную отписку
+    Autodesk::AutoCAD::ApplicationServices::DocumentCollectionEventHandler^ m_pDocActivatedHandler;
+    Autodesk::AutoCAD::ApplicationServices::DocumentCollectionEventHandler^ m_pDocDestroyedHandler;
+    System::EventHandler^ m_pIdleHandler;
+
+    bool m_isIdleSubscribed; // Флаг-защита от множественной подписки на Idle
 
 public:
     OpmManagedBridge() {
-        // ИСПРАВЛЕНО 2: Создаем делегат правильного типа [4]
-        m_pModelessHandler = gcnew Autodesk::AutoCAD::ApplicationServices::ModelessOperationEventHandler(
-            this, &OpmManagedBridge::OnModelessOperationEnded);
+        m_isIdleSubscribed = false;
+
+        m_pModelessHandler = gcnew ModelessOperationEventHandler(this, &OpmManagedBridge::OnModelessOperationEnded);
+        m_pDocActivatedHandler = gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentActivated);
+        m_pDocDestroyedHandler = gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentToBeDestroyed);
+        m_pIdleHandler = gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADIdle);
     }
 
-    void OnModelessOperationEnded(System::Object^ sender, Autodesk::AutoCAD::ApplicationServices::ModelessOperationEventArgs^ e) {
+    // Деструктор (Реализация IDisposable в C++/CLI)
+    ~OpmManagedBridge() {
+        Unsubscribe();
+    }
 
+    void OnModelessOperationEnded(System::Object^ sender, ModelessOperationEventArgs^ e) {
         if (ArxBridge::ArxBridgeCore::m_frameSelectedIds == nullptr) return;
 
-        // Вместо прямого вызова просто подписываемся на событие Idle.
-        // Как только палитра закончит ввод, а AutoCAD завершит коммит транзакции, 
-        // управление мгновенно перейдет в OnAutoCADIdle.
-        Autodesk::AutoCAD::ApplicationServices::Application::Idle +=
-            gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADIdle);       
+        // Защита: подписываемся на Idle только один раз
+        if (!m_isIdleSubscribed) {
+            m_isIdleSubscribed = true;
+            Application::Idle += m_pIdleHandler;
+        }
     }
 
     void OnAutoCADIdle(System::Object^ sender, System::EventArgs^ e) {
-        // 1. Сразу же отписываемся, чтобы это сработало строго один раз!
-        Autodesk::AutoCAD::ApplicationServices::Application::Idle -=
-            gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADIdle);
+        // Сразу снимаем флаг и отписываем сохраненный делегат
+        m_isIdleSubscribed = false;
+        Application::Idle -= m_pIdleHandler;
 
-        // 2. Извлекаем сохраненные ID (как вы и делали)
         const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
-
-        // 3. Безопасно пинаем палитру — теперь база данных гарантированно свободна
         ArxBridge::OpmPaletteSubscription::getInstance().NotifyModelessOperationEnded(pNativeIds);
     }
 
     void OnDocumentActivated(System::Object^ sender, DocumentCollectionEventArgs^ e) {
         if (e->Document != nullptr) {
-            // ИСПРАВЛЕНО 3: Используем методы remove() и add() вместо -= и +=
-            // Это стандартное требование C++/CLI для подписки на события внешних управляемых сборок
             e->Document->ModelessOperationEnded::remove(m_pModelessHandler);
             e->Document->ModelessOperationEnded::add(m_pModelessHandler);
         }
@@ -57,8 +64,9 @@ public:
     void Subscribe() {
         DocumentCollection^ docMgr = Application::DocumentManager;
         if (docMgr != nullptr) {
-            docMgr->DocumentActivated += gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentActivated);
-            docMgr->DocumentToBeDestroyed += gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentToBeDestroyed);
+            // Используем сохраненные делегаты
+            docMgr->DocumentActivated += m_pDocActivatedHandler;
+            docMgr->DocumentToBeDestroyed += m_pDocDestroyedHandler;
 
             Document^ pActiveDoc = docMgr->MdiActiveDocument;
             if (pActiveDoc != nullptr) {
@@ -69,10 +77,16 @@ public:
     }
 
     void Unsubscribe() {
+        // Отписываем Idle, если он остался активен в момент выгрузки
+        if (m_isIdleSubscribed) {
+            Application::Idle -= m_pIdleHandler;
+            m_isIdleSubscribed = false;
+        }
+
         DocumentCollection^ docMgr = Application::DocumentManager;
         if (docMgr != nullptr) {
-            docMgr->DocumentActivated -= gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentActivated);
-            docMgr->DocumentToBeDestroyed -= gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentToBeDestroyed);
+            docMgr->DocumentActivated -= m_pDocActivatedHandler;
+            docMgr->DocumentToBeDestroyed -= m_pDocDestroyedHandler;
 
             for each (Document ^ doc in docMgr) {
                 if (doc != nullptr && !doc->IsDisposed) {
@@ -82,6 +96,7 @@ public:
         }
     }
 };
+
 
 // 2. Управляемая точка входа (IExtensionApplication)
 public ref class ExtensionApplication : public Autodesk::AutoCAD::Runtime::IExtensionApplication {
@@ -96,10 +111,9 @@ public:
     }
 
     virtual void Terminate() {
-        // Снимаем управляемые .NET подписки с документов
         if (m_bridge != nullptr) {
-            m_bridge->Unsubscribe();
+            delete m_bridge; // Вызывает деструктор (~OpmManagedBridge), который гарантированно отпишет всё
             m_bridge = nullptr;
-        }
+        }    
     }
 };
