@@ -5,6 +5,7 @@
 #include "SelectedObjectData.h"
 #include "Property.h" 
 #include "ArxBridgeCore.h"
+#include "OpmPaletteSubscription.h"
 
 using namespace System;
 using namespace Autodesk::AutoCAD::DatabaseServices;
@@ -156,8 +157,10 @@ namespace ArxBridge {
         finally {
             if (docLock != nullptr) {
                 delete docLock; // Безопасный сброс блокировки dwg-файла
-            }
+            }            
         }
+
+        ArxBridge::OpmPaletteSubscription::getInstance().m_isCacheDirty = false;
     }
 
     ArxBridge::PropertyMeta^ BridgeManager::FindMetadataAcrossProviders(System::String^ propName) {

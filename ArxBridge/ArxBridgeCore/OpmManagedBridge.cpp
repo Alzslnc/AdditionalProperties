@@ -1,6 +1,7 @@
 #include "OpmPaletteSubscription.h" // Подключаем наш нативный синглтон
 #include <vcclr.h>
 #include "ArxBridgeCore.h"
+#include "DocumentCacheManager.h"
 
 using namespace Autodesk::AutoCAD::ApplicationServices;
 
@@ -9,17 +10,19 @@ private:
     Autodesk::AutoCAD::ApplicationServices::ModelessOperationEventHandler^ m_pModelessHandler;
     Autodesk::AutoCAD::ApplicationServices::DocumentCollectionEventHandler^ m_pDocActivatedHandler;
     Autodesk::AutoCAD::ApplicationServices::DocumentCollectionEventHandler^ m_pDocDestroyedHandler;
-    System::EventHandler^ m_pQuiescentHandler; 
-    bool m_isQuiescentSubscribed; 
+    System::EventHandler^ m_pIdleHandler;
+    // Флаг защиты от множественной подписки на Idle
+    bool m_isIdleSubscribed;
 
 public:
     OpmManagedBridge() {
-        m_isQuiescentSubscribed = false;
+        m_isIdleSubscribed = false;
 
+        // Инициализируем делегаты
         m_pModelessHandler = gcnew ModelessOperationEventHandler(this, &OpmManagedBridge::OnModelessOperationEnded);
         m_pDocActivatedHandler = gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentActivated);
         m_pDocDestroyedHandler = gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentToBeDestroyed);
-        m_pQuiescentHandler = gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADQuiescent);     
+        m_pIdleHandler = gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADIdle);
     }
 
     // Деструктор (Реализация IDisposable в C++/CLI)
@@ -30,31 +33,42 @@ public:
     void OnModelessOperationEnded(System::Object^ sender, ModelessOperationEventArgs^ e) {
         if (ArxBridge::ArxBridgeCore::m_frameSelectedIds == nullptr) return;
 
-        // Подписываемся на состояние покоя редактора текущего активного документа.
-        // Пока комбобокс открыт, событие не наступит, защищая UI от сброса превью.
-        Document^ pActiveDoc = Application::DocumentManager->MdiActiveDocument;
-        if (pActiveDoc != nullptr && pActiveDoc->Editor != nullptr) {
-            if (!m_isQuiescentSubscribed) {
-                m_isQuiescentSubscribed = true;
-                pActiveDoc->Editor->EnteringQuiescentState += m_pQuiescentHandler;
-            }
+        // Цепляемся за Idle. Пока пользователь крутит комбобокс, Idle будет срабатывать,
+        // но метод OnAutoCADIdle быстро отфильтрует эти вызовы по флагу кэша.
+        if (!m_isIdleSubscribed) {
+            m_isIdleSubscribed = true;
+            Autodesk::AutoCAD::ApplicationServices::Application::Idle += m_pIdleHandler;
         }
     }
-    void OnAutoCADQuiescent(System::Object^ sender, System::EventArgs^ e) {
-        // Сразу же снимаем флаг и отписываемся от редактора
-        m_isQuiescentSubscribed = false;
 
-        Document^ pActiveDoc = Application::DocumentManager->MdiActiveDocument;
-        if (pActiveDoc != nullptr && pActiveDoc->Editor != nullptr) {
-            pActiveDoc->Editor->EnteringQuiescentState -= m_pQuiescentHandler;
+    void OnAutoCADIdle(System::Object^ sender, System::EventArgs^ e) {
+        // 1. Сразу же отписываемся от текущего тика Idle
+        m_isIdleSubscribed = false;
+        Autodesk::AutoCAD::ApplicationServices::Application::Idle -= m_pIdleHandler;
+
+        // 2. ВЫСОКОСКОРОСТНАЯ ПРОВЕРКА НА ПРЕВЬЮ:
+        // ПРЯМАЯ ПРОВЕРКА ЧЕРЕЗ СИНГЛТОН ПАЛИТРЫ:
+        // Быстро проверяем, взвел ли реактор флаг изменений в подписке палитры
+        if (!ArxBridge::OpmPaletteSubscription::getInstance().m_isCacheDirty) {
+            return;
         }
 
-        // Выбор в комбобоксе гарантированно зафиксирован, безопасно пинаем палитру
-        if (ArxBridge::ArxBridgeCore::m_frameSelectedIds != nullptr) {
+        // 3. Если кэш действительно «грязный» — значит, коммит реальной транзакции выполнен.
+        try {
+            // Извлекаем нативный указатель (валидность гарантирована предыдущим шагом перед подпиской)
             const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
+
+            // Безопасно пинаем палитру для финального обновления
             ArxBridge::OpmPaletteSubscription::getInstance().NotifyModelessOperationEnded(pNativeIds);
         }
+        finally {
+            // 4. СБРОС ФЛАГА БЛОКИРОВКИ:
+            // В самом конце конвейера переводим кэш обратно в «чистое» состояние (false).
+            // Это защитит палитру от ложных обновлений при последующих наведениях мыши.
+            ArxBridge::OpmPaletteSubscription::getInstance().m_isCacheDirty = false;
+        }
     }
+
     void OnDocumentActivated(System::Object^ sender, DocumentCollectionEventArgs^ e) {
         if (e->Document != nullptr) {
             e->Document->ModelessOperationEnded::remove(m_pModelessHandler);
@@ -65,14 +79,6 @@ public:
     void OnDocumentToBeDestroyed(System::Object^ sender, DocumentCollectionEventArgs^ e) {
         if (e->Document != nullptr) {
             e->Document->ModelessOperationEnded::remove(m_pModelessHandler);
-
-            // Если уничтожается документ, на покой которого мы были подписаны — сбрасываем флаг
-            if (m_isQuiescentSubscribed && Application::DocumentManager->MdiActiveDocument == e->Document) {
-                if (e->Document->Editor != nullptr) {
-                    e->Document->Editor->EnteringQuiescentState -= m_pQuiescentHandler;
-                }
-                m_isQuiescentSubscribed = false;
-            }
         }
     }
 
@@ -91,16 +97,11 @@ public:
     }
 
     void Unsubscribe() {
-        // 1. Безопасно отписываемся от покоя ТОЛЬКО активного документа (где подписка реально могла быть)
-        if (m_isQuiescentSubscribed) {
-            Document^ pActiveDoc = Application::DocumentManager->MdiActiveDocument;
-            if (pActiveDoc != nullptr && pActiveDoc->Editor != nullptr) {
-                pActiveDoc->Editor->EnteringQuiescentState -= m_pQuiescentHandler;
-            }
-            m_isQuiescentSubscribed = false; // Сбрасываем флаг ОДИН раз вне всяких циклов
+        if (m_isIdleSubscribed) {
+            Autodesk::AutoCAD::ApplicationServices::Application::Idle -= m_pIdleHandler;
+            m_isIdleSubscribed = false;
         }
 
-        // 2. А вот здесь уже спокойно чистим менеджер и коллекции документов
         DocumentCollection^ docMgr = Application::DocumentManager;
         if (docMgr != nullptr) {
             docMgr->DocumentActivated -= m_pDocActivatedHandler;

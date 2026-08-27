@@ -2,9 +2,10 @@
 #include "DocumentCacheManager.h" 
 #include <dbmain.h>
 #include <acdocman.h>
+#include "OpmPaletteSubscription.h" 
 
 namespace ArxBridge {
-
+        
     CacheInvalidationSubscription& CacheInvalidationSubscription::getInstance() {
         static CacheInvalidationSubscription instance;
         return instance;
@@ -24,7 +25,11 @@ namespace ArxBridge {
             // СЕРДЦЕ ЛЕНИВОЙ АКТУАЛИЗАЦИИ (Ваш оригинальный проверенный код): 
             // Точечно взводим флаг IsModified = true для этого объекта в пакетном кэше конкретного чертежа.
             DocumentCacheManager::InvalidateObject(pModDb, pObj->objectId());
+
+            // 🌟 ВЗВОДИМ ФЛАГ НАПРЯМУЮ В СИНГЛТОНЕ ПАЛИТРЫ
+            /*OpmPaletteSubscription::getInstance().m_isCacheDirty = true;*/
         }
     }
 
+  
 } // namespace ArxBridge

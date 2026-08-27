@@ -21,16 +21,21 @@ namespace ArxBridge {
 
         // Временный кэш текущего активного набора выбора пользователя
         static gcroot<System::Collections::Generic::List<ArxBridge::SelectedObjectData^>^> m_currentSelectionCache;
+               
 
         // Конструктор скрыт, так как класс статический
         DocumentCacheManager() = delete;
 
-    public:
+    public:       
+
         /// <summary> Инициализировать контейнеры кэша. </summary>
         static void Initialize();
 
         /// <summary> Полностью очистить контейнеры кэша при выгрузке плагина. </summary>
         static void Terminate();
+
+        // НОВОЕ: Метод, который проверяет флаг и СРАЗУ сбрасывает его (атомарно)
+        static bool CheckAndResetDirtyFlag();
 
         /// <summary> Уничтожить кэш конкретного чертежа при закрытии вкладки. </summary>
         static void ClearCache(AcDbDatabase* pDb);

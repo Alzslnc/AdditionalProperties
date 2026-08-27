@@ -15,7 +15,7 @@ namespace ArxBridge {
         CacheInvalidationSubscription(const CacheInvalidationSubscription&) = delete;
         CacheInvalidationSubscription& operator=(const CacheInvalidationSubscription&) = delete;
 
-    public:
+    public:        
         /// <summary> Получить доступ к единственному экземпляру подписки кэша. </summary>
         static CacheInvalidationSubscription& getInstance();
 

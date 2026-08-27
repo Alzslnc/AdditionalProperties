@@ -17,6 +17,8 @@ namespace ArxBridge {
         virtual void OnDocumentCreated(AcApDocument* pDoc) {}
         virtual void OnDocumentToBeDestroyed(AcApDocument* pDoc) {}
         virtual void OnObjectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) {}
+        virtual void OnDocumentLockModeChanged(const ACHAR* pGlobalCmdName) {}
+
     };
 
     /// <summary>
@@ -52,5 +54,14 @@ namespace ArxBridge {
 
         // Перехват нативных событий изменений внутри базы данных чертежа
         virtual void objectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) override;
+
+        // Внутри класса PropertyReactor : public AcApDocManagerReactor...
+        virtual void documentLockModeChanged(
+            AcApDocument* pDoc,
+            AcAp::DocLockMode myPreviousMode,
+            AcAp::DocLockMode myCurrentMode,
+            AcAp::DocLockMode currentMode,
+            const ACHAR* pGlobalCmdName
+        ) override;
     };
 } // namespace ArxBridge

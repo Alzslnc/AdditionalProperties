@@ -17,6 +17,9 @@ namespace ArxBridge {
         OpmPaletteSubscription& operator=(const OpmPaletteSubscription&) = delete;
 
     public:
+        // 🌟 НАШ НОВЫЙ ОТКРЫТЫЙ ФЛАГ ТЕКУЩЕГО СОСТОЯНИЯ:
+        bool m_isCacheDirty = false;
+
         static OpmPaletteSubscription& getInstance();
 
         // ИСПРАВЛЕНО: Теперь метод принимает нативный указатель на вектор ID
@@ -24,6 +27,10 @@ namespace ArxBridge {
 
         void OnObjectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) override;
         void OnDocumentToBeDestroyed(AcApDocument* pDoc) override;
+
+   
+        void OnDocumentLockModeChanged(const ACHAR* pGlobalCmdName) override;
+
     };
 
 } // namespace ArxBridge

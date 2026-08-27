@@ -98,4 +98,19 @@ namespace ArxBridge {
         }
     }
 
+    void PropertyReactor::documentLockModeChanged(
+        AcApDocument* pDoc,
+        AcAp::DocLockMode myPreviousMode,
+        AcAp::DocLockMode myCurrentMode,
+        AcAp::DocLockMode currentMode,
+        const ACHAR* pGlobalCmdName)
+    {
+        for (auto* subscription : m_subscriptions)
+        {
+            if (subscription != nullptr)
+            {
+                subscription->OnDocumentLockModeChanged(pGlobalCmdName);
+            }
+        }
+    }
 } // namespace ArxBridge

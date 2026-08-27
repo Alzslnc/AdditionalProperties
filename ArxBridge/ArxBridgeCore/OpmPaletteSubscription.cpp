@@ -40,4 +40,14 @@ namespace ArxBridge {
         m_needsRefresh = false;
     }
 
+    void OpmPaletteSubscription::OnDocumentLockModeChanged(const ACHAR* pGlobalCmdName)
+    {
+        // Подписка палитры сама решает, какая именно UI-команда её интересует
+        if (pGlobalCmdName != nullptr && (std::wcsstr(pGlobalCmdName, L"PREVIEW_END") != nullptr || std::wcsstr(pGlobalCmdName, L"OpmPropertyValueUpdate") != nullptr))
+        {
+            // Взводим флаг внутри этого же класса (или синглтона)
+            this->m_isCacheDirty = true;
+        }
+    }
+
 } // namespace ArxBridge
