@@ -7,21 +7,19 @@ using namespace Autodesk::AutoCAD::ApplicationServices;
 public ref class OpmManagedBridge : public System::IDisposable {
 private:
     Autodesk::AutoCAD::ApplicationServices::ModelessOperationEventHandler^ m_pModelessHandler;
-    // Сохраняем делегаты менеджера документов, чтобы гарантировать точную отписку
     Autodesk::AutoCAD::ApplicationServices::DocumentCollectionEventHandler^ m_pDocActivatedHandler;
     Autodesk::AutoCAD::ApplicationServices::DocumentCollectionEventHandler^ m_pDocDestroyedHandler;
-    System::EventHandler^ m_pIdleHandler;
-
-    bool m_isIdleSubscribed; // Флаг-защита от множественной подписки на Idle
+    System::EventHandler^ m_pQuiescentHandler; 
+    bool m_isQuiescentSubscribed; 
 
 public:
     OpmManagedBridge() {
-        m_isIdleSubscribed = false;
+        m_isQuiescentSubscribed = false;
 
         m_pModelessHandler = gcnew ModelessOperationEventHandler(this, &OpmManagedBridge::OnModelessOperationEnded);
         m_pDocActivatedHandler = gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentActivated);
         m_pDocDestroyedHandler = gcnew DocumentCollectionEventHandler(this, &OpmManagedBridge::OnDocumentToBeDestroyed);
-        m_pIdleHandler = gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADIdle);
+        m_pQuiescentHandler = gcnew System::EventHandler(this, &OpmManagedBridge::OnAutoCADQuiescent);     
     }
 
     // Деструктор (Реализация IDisposable в C++/CLI)
@@ -32,22 +30,31 @@ public:
     void OnModelessOperationEnded(System::Object^ sender, ModelessOperationEventArgs^ e) {
         if (ArxBridge::ArxBridgeCore::m_frameSelectedIds == nullptr) return;
 
-        // Защита: подписываемся на Idle только один раз
-        if (!m_isIdleSubscribed) {
-            m_isIdleSubscribed = true;
-            Application::Idle += m_pIdleHandler;
+        // Подписываемся на состояние покоя редактора текущего активного документа.
+        // Пока комбобокс открыт, событие не наступит, защищая UI от сброса превью.
+        Document^ pActiveDoc = Application::DocumentManager->MdiActiveDocument;
+        if (pActiveDoc != nullptr && pActiveDoc->Editor != nullptr) {
+            if (!m_isQuiescentSubscribed) {
+                m_isQuiescentSubscribed = true;
+                pActiveDoc->Editor->EnteringQuiescentState += m_pQuiescentHandler;
+            }
         }
     }
+    void OnAutoCADQuiescent(System::Object^ sender, System::EventArgs^ e) {
+        // Сразу же снимаем флаг и отписываемся от редактора
+        m_isQuiescentSubscribed = false;
 
-    void OnAutoCADIdle(System::Object^ sender, System::EventArgs^ e) {
-        // Сразу снимаем флаг и отписываем сохраненный делегат
-        m_isIdleSubscribed = false;
-        Application::Idle -= m_pIdleHandler;
+        Document^ pActiveDoc = Application::DocumentManager->MdiActiveDocument;
+        if (pActiveDoc != nullptr && pActiveDoc->Editor != nullptr) {
+            pActiveDoc->Editor->EnteringQuiescentState -= m_pQuiescentHandler;
+        }
 
-        const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
-        ArxBridge::OpmPaletteSubscription::getInstance().NotifyModelessOperationEnded(pNativeIds);
+        // Выбор в комбобоксе гарантированно зафиксирован, безопасно пинаем палитру
+        if (ArxBridge::ArxBridgeCore::m_frameSelectedIds != nullptr) {
+            const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
+            ArxBridge::OpmPaletteSubscription::getInstance().NotifyModelessOperationEnded(pNativeIds);
+        }
     }
-
     void OnDocumentActivated(System::Object^ sender, DocumentCollectionEventArgs^ e) {
         if (e->Document != nullptr) {
             e->Document->ModelessOperationEnded::remove(m_pModelessHandler);
@@ -58,13 +65,20 @@ public:
     void OnDocumentToBeDestroyed(System::Object^ sender, DocumentCollectionEventArgs^ e) {
         if (e->Document != nullptr) {
             e->Document->ModelessOperationEnded::remove(m_pModelessHandler);
+
+            // Если уничтожается документ, на покой которого мы были подписаны — сбрасываем флаг
+            if (m_isQuiescentSubscribed && Application::DocumentManager->MdiActiveDocument == e->Document) {
+                if (e->Document->Editor != nullptr) {
+                    e->Document->Editor->EnteringQuiescentState -= m_pQuiescentHandler;
+                }
+                m_isQuiescentSubscribed = false;
+            }
         }
     }
 
     void Subscribe() {
         DocumentCollection^ docMgr = Application::DocumentManager;
         if (docMgr != nullptr) {
-            // Используем сохраненные делегаты
             docMgr->DocumentActivated += m_pDocActivatedHandler;
             docMgr->DocumentToBeDestroyed += m_pDocDestroyedHandler;
 
@@ -77,18 +91,22 @@ public:
     }
 
     void Unsubscribe() {
-        // Отписываем Idle, если он остался активен в момент выгрузки
-        if (m_isIdleSubscribed) {
-            Application::Idle -= m_pIdleHandler;
-            m_isIdleSubscribed = false;
+        // 1. Безопасно отписываемся от покоя ТОЛЬКО активного документа (где подписка реально могла быть)
+        if (m_isQuiescentSubscribed) {
+            Document^ pActiveDoc = Application::DocumentManager->MdiActiveDocument;
+            if (pActiveDoc != nullptr && pActiveDoc->Editor != nullptr) {
+                pActiveDoc->Editor->EnteringQuiescentState -= m_pQuiescentHandler;
+            }
+            m_isQuiescentSubscribed = false; // Сбрасываем флаг ОДИН раз вне всяких циклов
         }
 
+        // 2. А вот здесь уже спокойно чистим менеджер и коллекции документов
         DocumentCollection^ docMgr = Application::DocumentManager;
         if (docMgr != nullptr) {
             docMgr->DocumentActivated -= m_pDocActivatedHandler;
             docMgr->DocumentToBeDestroyed -= m_pDocDestroyedHandler;
 
-            for each (Document ^ doc in docMgr) {
+            for each(Document ^ doc in docMgr) {
                 if (doc != nullptr && !doc->IsDisposed) {
                     doc->ModelessOperationEnded::remove(m_pModelessHandler);
                 }
