@@ -55,7 +55,8 @@ namespace ArxBridge {
     void OpmPaletteSubscription::OnDocumentLockModeChanged(const ACHAR* pGlobalCmdName)
     {
         // Пропускаем через нативный Win32 таймер-сито
-        OpmTriggerState::ProcessLockMode(pGlobalCmdName);
+        //OpmTriggerState::ProcessLockMode(pGlobalCmdName);
+
     }
 
 } // namespace ArxBridge

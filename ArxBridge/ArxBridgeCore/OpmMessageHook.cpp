@@ -25,23 +25,20 @@ static bool IsTargetOpmWindow(HWND hWndChild) {
                 wchar_t windowText[256] = { 0 };
                 if (::GetWindowTextW(hWndParent, windowText, 256) > 0) // Явно вызываем Wide-версию API
                 {
+                    // 1. Переводим весь буфер в нижний регистр силами Windows API
+                    // (функция отлично понимает кириллицу и меняет символы прямо в массиве)
+                    ::CharLowerW(windowText);
+
+                    // 2. Создаем строку из уже подготовленного текста
                     std::wstring title(windowText);
 
-                    // Переводим в нижний регистр для безопасного сравнения
-                    std::transform(title.begin(), title.end(), title.begin(), ::towlower);
-
-                    // Ищем вхождение без привязки к регистру и окончаниям
-                    if (title.find(L"свойств") != std::wstring::npos ||
+                    // Ищем вхождение (теперь гарантированно в нижнем регистре!)
+                    if (title.find(L"\u0441\u0432\u043e\u0439\u0441\u0442\u0432") != std::wstring::npos ||
                         title.find(L"propert") != std::wstring::npos)
                     {
-                        return true; // ГАРАНТИРОВАНО!
+                        return true; // ГАРАНТИРОВАНО И НАВСЕГДА!
                     }
                 }
-            }
-
-            // Если в цепочке окон внезапно обнаружилась командная строка — это ложное срабатывание, выходим
-            if (::wcsstr(className, L"CommandLine") != nullptr) {
-                return false;
             }
         }
 
@@ -52,6 +49,11 @@ static bool IsTargetOpmWindow(HWND hWndChild) {
 }
 
 // Процедура хука оконных сообщений Windows (вызывается синхронно потоком AutoCAD)
+// Предположим, у вас есть два коллбэка (или один с параметрами), 
+// чтобы управляемый код понимал, откуда прилетел пинок.
+// Для примера добавим гипотетический g_notifyTextBoxCallback для текста.
+// Если коллбэк один, можно передавать в него ID (например, 1 - комбо, 2 - текст).
+
 static LRESULT CALLBACK OpmMessageHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
     if (nCode < 0)
@@ -59,22 +61,35 @@ static LRESULT CALLBACK OpmMessageHookProc(int nCode, WPARAM wParam, LPARAM lPar
 
     CWPSTRUCT* pCwp = (CWPSTRUCT*)lParam;
 
-    // Перехватываем стандартные Win32-команды от элементов управления палитры
     if (pCwp->message == WM_COMMAND)
     {
         WORD wNotifyCode = HIWORD(pCwp->wParam);
 
-        // ЛОВИМ СТРОГО КОД 1 (CBN_SELCHANGE) - Физический клик по элементу выпадающего списка.
-        // Весь спам от наведения мыши по списку (без клика) этот хук полностью игнорирует!
-        if (wNotifyCode == CBN_SELCHANGE)
+        // 1. ЛОВИМ ФИНАЛЬНЫЙ ВЫБОР В КОМБОБОКСЕ
+        if (wNotifyCode == CBN_SELCHANGE) // Код 1
         {
             HWND hWndCtrl = (HWND)pCwp->lParam;
             if (hWndCtrl != NULL && IsTargetOpmWindow(hWndCtrl))
             {
-                // ПОЙМАНО: Пользователь выбрал новое значение в комбобоксе палитры свойств.
-                // Пинаем наш глобальный управляемый мост, чтобы запланировать безопасное Idle-обновление
                 if (g_notifyCallback != nullptr) {
-                    g_notifyCallback();
+                    g_notifyCallback(); // Сигнал: Сработал комбобокс
+                }
+            }
+        }
+        // 2. ЛОВИМ ВЫХОД ИЗ ТЕКСТОВОГО ПОЛЯ (Потеря фокуса)
+        else if (wNotifyCode == EN_KILLFOCUS) // Код 512 (0x0200)
+        {
+            if (OpmMessageHook::IsChanged)
+            {
+                HWND hWndCtrl = (HWND)pCwp->lParam;
+                if (hWndCtrl != NULL && IsTargetOpmWindow(hWndCtrl))
+                {
+                    // ПОЙМАНО: Текстбокс в палитре свойств потерял фокус.
+                    // Вы можете вызвать специальный коллбэк для текстбокса, 
+                    // либо взвести флаг в вашей системе триггеров.
+                    if (g_notifyCallback != nullptr) {
+                        g_notifyCallback(); // Сигнал: Сработал комбобокс
+                    }
                 }
             }
         }
@@ -82,6 +97,7 @@ static LRESULT CALLBACK OpmMessageHookProc(int nCode, WPARAM wParam, LPARAM lPar
 
     return ::CallNextHookEx(g_hOpmHook, nCode, wParam, lParam);
 }
+
 
 void OpmMessageHook::Start(void (*notifyCallback)()) {
     if (g_hOpmHook == NULL && notifyCallback != nullptr) {

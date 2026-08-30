@@ -5,6 +5,8 @@
 #include "OpmTriggerState.h" // Подключаем наш нативный глушитель спама
 #include "OpmMessageHook.h"  // Подключаем нативный Win32-хук
 
+bool OpmMessageHook::IsChanged = false;
+
 using namespace Autodesk::AutoCAD::ApplicationServices;
 
 // Глобальные переменные для управления подпиской на Idle в рамках файла
@@ -71,6 +73,8 @@ public:
     // 1. ВЕТКА ТЕКСТБОКСОВ: Точка ModelessOperationEnded
     void OnModelessOperationEnded(System::Object^ sender, ModelessOperationEventArgs^ e) {
         if (ArxBridge::ArxBridgeCore::m_frameSelectedIds == nullptr) return;
+
+        return;
 
         // Перезапускаем нативный Win32-таймер ожидания на 50 мс
         OpmTriggerState::ProcessModelessEnded();

@@ -3,6 +3,8 @@
 #include <dbmain.h>
 #include <acdocman.h>
 #include "OpmTriggerState.h"
+#include "OpmMessageHook.h"
+
 
 namespace ArxBridge {
         
@@ -32,7 +34,8 @@ namespace ArxBridge {
 
             // СЕРДЦЕ ЛЕНИВОЙ АКТУАЛИЗАЦИИ (Ваш оригинальный проверенный код): 
             // Точечно взводим флаг IsModified = true для этого объекта в пакетном кэше конкретного чертежа.
-            DocumentCacheManager::InvalidateObject(pModDb, pObj->objectId());          
+            DocumentCacheManager::InvalidateObject(pModDb, pObj->objectId());     
+            OpmMessageHook::IsChanged = true;
         }
     }
 

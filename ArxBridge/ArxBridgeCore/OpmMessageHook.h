@@ -5,6 +5,8 @@
 
 class OpmMessageHook {
 public:
+    static bool IsChanged;
+
     // Инициализация хука. Принимает адрес нативной функции-колбэка (__cdecl)
     static void Start(void (*notifyCallback)());
 

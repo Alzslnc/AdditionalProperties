@@ -6,6 +6,7 @@
 #include "Property.h" 
 #include "ArxBridgeCore.h"
 #include "OpmPaletteSubscription.h"
+#include "OpmMessageHook.h"
 
 using namespace System;
 using namespace Autodesk::AutoCAD::DatabaseServices;
@@ -159,6 +160,8 @@ namespace ArxBridge {
                 delete docLock; // Безопасный сброс блокировки dwg-файла
             }            
         }
+
+        OpmMessageHook::IsChanged = false;
     }
 
     ArxBridge::PropertyMeta^ BridgeManager::FindMetadataAcrossProviders(System::String^ propName) {
