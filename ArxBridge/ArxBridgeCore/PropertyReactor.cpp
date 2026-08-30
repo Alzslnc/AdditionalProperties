@@ -98,6 +98,18 @@ namespace ArxBridge {
         }
     }
 
+    void PropertyReactor::documentActivated(AcApDocument* pDoc)
+    {
+        // Транслируем событие во все зарегистрированные модули
+        for (auto* subscription : m_subscriptions)
+        {
+            if (subscription != nullptr)
+            {
+                subscription->OnDocumentActivated(pDoc);
+            }
+        }
+    }
+
     void PropertyReactor::documentLockModeChanged(
         AcApDocument* pDoc,
         AcAp::DocLockMode myPreviousMode,

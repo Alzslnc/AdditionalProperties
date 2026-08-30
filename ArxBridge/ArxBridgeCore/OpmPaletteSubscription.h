@@ -16,11 +16,10 @@ namespace ArxBridge {
         OpmPaletteSubscription(const OpmPaletteSubscription&) = delete;
         OpmPaletteSubscription& operator=(const OpmPaletteSubscription&) = delete;
 
-    public:
-        // 🌟 НАШ НОВЫЙ ОТКРЫТЫЙ ФЛАГ ТЕКУЩЕГО СОСТОЯНИЯ:
-        bool m_isCacheDirty = false;
-
+    public:   
         static OpmPaletteSubscription& getInstance();
+
+        static void RegisterComboBoxCallback(void (*callback)());
 
         // ИСПРАВЛЕНО: Теперь метод принимает нативный указатель на вектор ID
         void NotifyModelessOperationEnded(const std::vector<::AcDbObjectId>* pSelectedIds);

@@ -2,13 +2,25 @@
 #include "BridgePropertyWatcher.h"
 #include "PropertyEngine.h"
 #include <dbid.h> // На всякий случай для AcDbObjectId
-
+#include "OpmTriggerState.h"
 
 namespace ArxBridge {
+
+    namespace ArxBridgeCore {
+        extern const std::vector<::AcDbObjectId>* m_frameSelectedIds;
+    }
 
     OpmPaletteSubscription& OpmPaletteSubscription::getInstance() {
         static OpmPaletteSubscription instance;
         return instance;
+    }
+
+    // Хранилище адреса функции
+    static void (*g_comboCallback)() = nullptr;
+
+    void OpmPaletteSubscription::RegisterComboBoxCallback(void (*callback)())
+    {
+        g_comboCallback = callback;
     }
 
     OpmPaletteSubscription::OpmPaletteSubscription() : m_needsRefresh(false) {}
@@ -42,12 +54,8 @@ namespace ArxBridge {
 
     void OpmPaletteSubscription::OnDocumentLockModeChanged(const ACHAR* pGlobalCmdName)
     {
-        // Подписка палитры сама решает, какая именно UI-команда её интересует
-        if (pGlobalCmdName != nullptr && (std::wcsstr(pGlobalCmdName, L"PREVIEW_END") != nullptr || std::wcsstr(pGlobalCmdName, L"OpmPropertyValueUpdate") != nullptr))
-        {
-            // Взводим флаг внутри этого же класса (или синглтона)
-            this->m_isCacheDirty = true;
-        }
+        // Пропускаем через нативный Win32 таймер-сито
+        OpmTriggerState::ProcessLockMode(pGlobalCmdName);
     }
 
 } // namespace ArxBridge

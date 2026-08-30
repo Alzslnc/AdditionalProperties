@@ -237,6 +237,8 @@
     <ClInclude Include="ArxBridgeCore\BridgePropertyWatcher.h" />
     <ClInclude Include="ArxBridgeCore\CacheInvalidationSubscription.h" />
     <ClInclude Include="ArxBridgeCore\OpmPaletteSubscription.h" />
+    <ClInclude Include="ArxBridgeCore\OpmTriggerState.h" />
+    <ClInclude Include="ArxBridgeCore\OpmMessageHook.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ArxBridgeCore\BridgeManager.cpp" />
@@ -259,6 +261,10 @@
       <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">false</CompileAsManaged>
     </ClCompile>
     <ClCompile Include="ArxBridgeCore\OpmManagedBridge.cpp" />
+    <ClCompile Include="ArxBridgeCore\OpmTriggerState.cpp">
+      <CompileAsManaged Condition="'$(Configuration)|$(Platform)'=='Debug_2025|x64'">false</CompileAsManaged>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\OpmMessageHook.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="accoremgd">

@@ -159,8 +159,6 @@ namespace ArxBridge {
                 delete docLock; // Безопасный сброс блокировки dwg-файла
             }            
         }
-
-        ArxBridge::OpmPaletteSubscription::getInstance().m_isCacheDirty = false;
     }
 
     ArxBridge::PropertyMeta^ BridgeManager::FindMetadataAcrossProviders(System::String^ propName) {

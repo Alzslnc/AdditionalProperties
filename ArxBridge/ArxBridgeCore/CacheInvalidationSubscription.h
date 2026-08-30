@@ -22,6 +22,7 @@ namespace ArxBridge {
         // Реализация методов интерфейса BridgeSubscriptionBase
         void OnDocumentToBeDestroyed(AcApDocument* pDoc) override;
         void OnObjectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) override;
+        void OnDocumentActivated(AcApDocument* pDoc) override;
     };
 
 } // namespace ArxBridge

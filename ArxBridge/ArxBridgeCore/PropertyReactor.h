@@ -18,6 +18,7 @@ namespace ArxBridge {
         virtual void OnDocumentToBeDestroyed(AcApDocument* pDoc) {}
         virtual void OnObjectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) {}
         virtual void OnDocumentLockModeChanged(const ACHAR* pGlobalCmdName) {}
+        virtual void OnDocumentActivated(AcApDocument* pDoc) {}
 
     };
 
@@ -51,6 +52,7 @@ namespace ArxBridge {
         // Перехват нативных событий документов (Вкладок dwg-файлов)
         virtual void documentCreated(AcApDocument* pDoc) override;
         virtual void documentToBeDestroyed(AcApDocument* pDoc) override;
+        virtual void documentActivated(AcApDocument* pDoc) override;
 
         // Перехват нативных событий изменений внутри базы данных чертежа
         virtual void objectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) override;

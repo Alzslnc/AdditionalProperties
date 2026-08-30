@@ -87,6 +87,12 @@
     <ClCompile Include="ArxBridgeCore\OpmManagedBridge.cpp">
       <Filter>Core\Engine\Reactor</Filter>
     </ClCompile>
+    <ClCompile Include="ArxBridgeCore\OpmTriggerState.cpp">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\OpmMessageHook.cpp">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ArxBridgeCore\Enums.h">
@@ -141,6 +147,12 @@
       <Filter>Core\Engine\Reactor</Filter>
     </ClInclude>
     <ClInclude Include="ArxBridgeCore\OpmPaletteSubscription.h">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\OpmTriggerState.h">
+      <Filter>Core\Engine\Reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\OpmMessageHook.h">
       <Filter>Core\Engine\Reactor</Filter>
     </ClInclude>
   </ItemGroup>
