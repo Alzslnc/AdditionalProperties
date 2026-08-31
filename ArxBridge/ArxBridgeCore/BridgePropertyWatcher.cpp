@@ -1,5 +1,7 @@
 #include "BridgePropertyWatcher.h"
 #include <unknwn.h>
+#include "ArxBridgeCore.h"
+#include "PropertyEngine.h"
 
 // Локальная копия интерфейса AutoCAD из SDK для бинарного vtable-matching
 interface IDynamicPropertyNotify2_Local : public IUnknown {
@@ -65,6 +67,12 @@ namespace ArxBridge {
 
     void BridgePropertyWatcher::Refresh() {
         if (m_isInternalUpdate || m_pActiveProps->empty()) return;
+                
+        // 🚀 БЕЗОПАСНАЯ АКТУАЛИЗАЦИЯ КЭША:
+        const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
+        if (pNativeIds != nullptr && !pNativeIds->empty()) {
+            ArxBridge::PropertyEngine::PrepareInitialSelectionContext(*pNativeIds);
+        }
 
         for (const auto& pair : *m_pActiveProps) {
             if (pair.pSinkNotify && pair.pPropertyIdentity) {

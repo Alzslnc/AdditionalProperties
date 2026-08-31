@@ -1,6 +1,4 @@
 #include "OpmMessageHook.h"
-#include "ArxBridgeCore.h"
-#include "PropertyEngine.h"
 #include "BridgePropertyWatcher.h"
 #include <windows.h>
 #include <cwchar>
@@ -133,15 +131,7 @@ void OpmMessageHook::Stop() {
 }
 
 // 🚀 РЕАЛИЗАЦИЯ НАШЕГО ВСТРОЕННОГО ПРЯМОГО КОЛЛБЭКА
-void __cdecl GlobalComboHookCallback() {
-    // 1. Извлекаем актуальный нативный вектор ID выбранных на экране объектов
-    const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
-
-    // 2. Обновляем пакетный контекст свойств для этих ID
-    if (pNativeIds != nullptr) {
-        ArxBridge::PropertyEngine::PrepareInitialSelectionContext(*pNativeIds);
-    }
-
-    // 3. Синхронно пинаем COM-интерфейс палитры свойств для моментальной перерисовки
+void __cdecl GlobalComboHookCallback() {   
+    // Синхронно пинаем COM-интерфейс палитры свойств для моментальной перерисовки
     ArxBridge::BridgePropertyWatcher::getInstance().Refresh();
 }
