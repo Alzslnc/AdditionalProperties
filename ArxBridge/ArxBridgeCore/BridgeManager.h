@@ -1,5 +1,5 @@
 #pragma once
-#include "PropertyMeta.h" // 👈 ИСПРАВЛЕНО: Подключаем вместо удаленного ModelSupport.h
+#include "PropertyMeta.h"
 
 namespace ArxBridge {
 

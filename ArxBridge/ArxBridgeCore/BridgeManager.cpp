@@ -5,7 +5,6 @@
 #include "SelectedObjectData.h"
 #include "Property.h" 
 #include "ArxBridgeCore.h"
-#include "OpmPaletteSubscription.h"
 #include "OpmMessageHook.h"
 
 using namespace System;

@@ -3,6 +3,7 @@
 #include "dbid.h"
 #include <vcclr.h>
 #include <string>
+
 namespace ArxBridge {
 
     // Опережающие объявления управляемых классов
@@ -33,9 +34,6 @@ namespace ArxBridge {
 
         /// <summary> Полностью очистить контейнеры кэша при выгрузке плагина. </summary>
         static void Terminate();
-
-        // НОВОЕ: Метод, который проверяет флаг и СРАЗУ сбрасывает его (атомарно)
-        static bool CheckAndResetDirtyFlag();
 
         /// <summary> Уничтожить кэш конкретного чертежа при закрытии вкладки. </summary>
         static void ClearCache(AcDbDatabase* pDb);

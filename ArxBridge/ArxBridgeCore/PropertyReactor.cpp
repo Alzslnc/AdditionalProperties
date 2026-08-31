@@ -1,6 +1,5 @@
 #include "PropertyReactor.h"
 #include "CacheInvalidationSubscription.h" // Подписка сброса кэша БД
-#include "OpmPaletteSubscription.h"        // Подписка отслеживания изменений палитры свойств
 
 namespace {
     /// <summary>
@@ -44,13 +43,8 @@ namespace ArxBridge {
         if (acDocManager != nullptr) {
             // Гарантированно очищаем вектор перед наполнением
             m_subscriptions.clear();
-
-            // САМОСТОЯТЕЛЬНО НАПОЛНЯЕМ СЕРВИС НАТИВНЫМИ ПОДПИСКАМИ ПРИ СТАРТЕ
-            // 1. Первая подписка: ваш вынесенный код сброса кэша объектов в БД [^5]
+                       
             m_subscriptions.push_back(&CacheInvalidationSubscription::getInstance());
-
-            // 2. Вторая подписка: нативный координатор тактов для палитры OPM
-            m_subscriptions.push_back(&OpmPaletteSubscription::getInstance());
 
             // Регистрируем нативное ядро в менеджере документов AutoCAD
             acDocManager->addReactor(this);

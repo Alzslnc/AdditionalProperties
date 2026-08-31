@@ -3,10 +3,11 @@
 
 #include "ArxBridgeCore.h"
 #include "BridgeManager.h"
-#include "PropertyEngine.h"
+//#include "PropertyEngine.h"
 #include "PropertyReactor.h"
 #include "DocumentCacheManager.h"
 #include "BridgePropertyWatcher.h"
+#include "OpmMessageHook.h" 
 
 // Главный нативный класс-наследник сессии приложения AutoCAD
 class CArxBridgeApp : public AcRxDbxApp {
@@ -27,13 +28,17 @@ public:
 
         ArxBridge::BridgeManager::Initialize();
 
-      
+        OpmMessageHook::Start();
 
         return retCode;
     }
 
     // Метод срабатывает при принудительной выгрузке плагина пользователем
     virtual AcRx::AppRetCode On_kUnloadAppMsg(void* pkt) override {
+
+        // Первым делом снимаем Windows-хук, чтобы поток AutoCAD больше не вызывал наш коллбэк
+        OpmMessageHook::Stop();
+
         // Чисто тушим мониторинг чертежей dwg
         ArxBridge::PropertyReactor::getInstance().stopMonitoring();
 

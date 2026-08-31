@@ -1,62 +1,80 @@
-// OpmMessageHook.cpp
 #include "OpmMessageHook.h"
+#include "ArxBridgeCore.h"
+#include "PropertyEngine.h"
+#include "BridgePropertyWatcher.h"
 #include <windows.h>
 #include <cwchar>
 #include <string>
 #include <algorithm>
+#include <vector>
+#include <unordered_set> // 🚀 Для мгновенной проверки HWND за O(1)
 
+// Инициализация статического флага
+bool OpmMessageHook::IsChanged = false;
+
+// Глобальные переменные Win32-хука
 static HHOOK g_hOpmHook = NULL;
-static void (*g_notifyCallback)() = nullptr;
 
-// Функция для железобетонного подтверждения, что окно принадлежит Палитре Свойств AutoCAD
+// 🚀 КЭШ ДЕСКРИПТОРОВ ОКОН: Полностью исключает постоянную "молотилку" строк через WinAPI
+static std::unordered_set<HWND> g_targetWindowsCache;
+static std::unordered_set<HWND> g_ignoredWindowsCache;
+
+// Предварительное объявление нашего встроенного коллбэка
+void __cdecl GlobalComboHookCallback();
+
+// Оптимизированная функция проверки принадлежности окна Палитре Свойств AutoCAD
 static bool IsTargetOpmWindow(HWND hWndChild) {
+    if (hWndChild == NULL) return false;
+
+    // 1. Быстрая проверка через хэш-таблицы (без вызовов функций ОС)
+    if (g_targetWindowsCache.count(hWndChild) > 0) return true;
+    if (g_ignoredWindowsCache.count(hWndChild) > 0) return false;
+
     HWND hWndParent = hWndChild;
-    wchar_t className[256]; // Массив выделен корректно, переполнения стека не будет
+    wchar_t className[256];
 
-    // Поднимаемся по иерархии окон вверх до контейнера палитры свойств
+    // 2. Медленный подъем по иерархии (выполняется только ОДИН раз для каждого нового HWND)
     for (int i = 0; i < 7 && hWndParent != NULL; i++) {
-        if (::GetClassName(hWndParent, className, 256) > 0) {
+        if (::GetClassNameW(hWndParent, className, 256) > 0) {
 
-            // Если дошли до базовой MFC-панели докера AutoCAD
+            // Проверяем базовые MFC/ATL классы докеров AutoCAD
             if (::wcsstr(className, L"AfxControlBar") != nullptr ||
                 ::wcsstr(className, L"AfxWnd") != nullptr ||
                 ::wcsstr(className, L"ATL:") != nullptr)
             {
                 wchar_t windowText[256] = { 0 };
-                if (::GetWindowTextW(hWndParent, windowText, 256) > 0) // Явно вызываем Wide-версию API
+                if (::GetWindowTextW(hWndParent, windowText, 256) > 0)
                 {
-                    // 1. Переводим весь буфер в нижний регистр силами Windows API
-                    // (функция отлично понимает кириллицу и меняет символы прямо в массиве)
                     ::CharLowerW(windowText);
-
-                    // 2. Создаем строку из уже подготовленного текста
                     std::wstring title(windowText);
 
-                    // Ищем вхождение (теперь гарантированно в нижнем регистре!)
+                    // Ищем вхождение ключевых слов (рус/eng)
                     if (title.find(L"\u0441\u0432\u043e\u0439\u0441\u0442\u0432") != std::wstring::npos ||
                         title.find(L"propert") != std::wstring::npos)
                     {
-                        return true; // ГАРАНТИРОВАНО И НАВСЕГДА!
+                        g_targetWindowsCache.insert(hWndChild); // Запоминаем как валидное
+                        return true;
                     }
                 }
             }
         }
-
-        // Шаг вверх к родителю
         hWndParent = ::GetAncestor(hWndParent, GA_PARENT);
     }
+
+    g_ignoredWindowsCache.insert(hWndChild); // Запоминаем как чужое, чтобы больше не тратить процессор
     return false;
 }
 
-// Процедура хука оконных сообщений Windows (вызывается синхронно потоком AutoCAD)
-// Предположим, у вас есть два коллбэка (или один с параметрами), 
-// чтобы управляемый код понимал, откуда прилетел пинок.
-// Для примера добавим гипотетический g_notifyTextBoxCallback для текста.
-// Если коллбэк один, можно передавать в него ID (например, 1 - комбо, 2 - текст).
-
+// Фильтрующая процедура хука оконных сообщений (вызывается синхронно в потоке AutoCAD)
 static LRESULT CALLBACK OpmMessageHookProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
+    // Стандартный выход, если сообщение не для нас
     if (nCode < 0)
+        return ::CallNextHookEx(g_hOpmHook, nCode, wParam, lParam);
+
+    // 🚀 ПЕРВАЯ ЛИНИЯ ОБОРОНЫ: Если в AutoCAD вообще ничего не менялось,
+    // мы мгновенно выходим, экономя такты процессора на каждом чихе UI.
+    if (!OpmMessageHook::IsChanged)
         return ::CallNextHookEx(g_hOpmHook, nCode, wParam, lParam);
 
     CWPSTRUCT* pCwp = (CWPSTRUCT*)lParam;
@@ -65,32 +83,18 @@ static LRESULT CALLBACK OpmMessageHookProc(int nCode, WPARAM wParam, LPARAM lPar
     {
         WORD wNotifyCode = HIWORD(pCwp->wParam);
 
-        // 1. ЛОВИМ ФИНАЛЬНЫЙ ВЫБОР В КОМБОБОКСЕ
-        if (wNotifyCode == CBN_SELCHANGE) // Код 1
+        // 1. ЛОВИМ И КОМБОБОКСЫ, И ТЕКСТБОКСЫ
+        if (wNotifyCode == CBN_SELCHANGE || wNotifyCode == EN_KILLFOCUS)
         {
             HWND hWndCtrl = (HWND)pCwp->lParam;
-            if (hWndCtrl != NULL && IsTargetOpmWindow(hWndCtrl))
+
+            // Проверяем окно (теперь эта проверка дергается только при реальном изменении!)
+            if (IsTargetOpmWindow(hWndCtrl))
             {
-                if (g_notifyCallback != nullptr) {
-                    g_notifyCallback(); // Сигнал: Сработал комбобокс
-                }
-            }
-        }
-        // 2. ЛОВИМ ВЫХОД ИЗ ТЕКСТОВОГО ПОЛЯ (Потеря фокуса)
-        else if (wNotifyCode == EN_KILLFOCUS) // Код 512 (0x0200)
-        {
-            if (OpmMessageHook::IsChanged)
-            {
-                HWND hWndCtrl = (HWND)pCwp->lParam;
-                if (hWndCtrl != NULL && IsTargetOpmWindow(hWndCtrl))
-                {
-                    // ПОЙМАНО: Текстбокс в палитре свойств потерял фокус.
-                    // Вы можете вызвать специальный коллбэк для текстбокса, 
-                    // либо взвести флаг в вашей системе триггеров.
-                    if (g_notifyCallback != nullptr) {
-                        g_notifyCallback(); // Сигнал: Сработал комбобокс
-                    }
-                }
+                GlobalComboHookCallback(); // Мгновенный прямой вызов updates
+
+                // Сбрасываем флаг, так как изменение успешно обработано палитрой
+                OpmMessageHook::IsChanged = false;
             }
         }
     }
@@ -99,13 +103,14 @@ static LRESULT CALLBACK OpmMessageHookProc(int nCode, WPARAM wParam, LPARAM lPar
 }
 
 
-void OpmMessageHook::Start(void (*notifyCallback)()) {
-    if (g_hOpmHook == NULL && notifyCallback != nullptr) {
-        g_notifyCallback = notifyCallback;
+// Инициализация хука
+void OpmMessageHook::Start() {
+    if (g_hOpmHook == NULL) {
+        // Гарантированно очищаем кэш дескрипторов при старте сессии
+        g_targetWindowsCache.clear();
+        g_ignoredWindowsCache.clear();
 
-        // Устанавливаем локальный хук оконных процедур (WH_CALLWNDPROC).
-        // Передаем GetCurrentThreadId(), чтобы хукать ТОЛЬКО поток самого AutoCAD. 
-        // Это абсолютно безопасно, не требует административных прав и глобальных DLL-инъекций.
+        // Ставим локальный хук строго на поток самого AutoCAD (GetCurrentThreadId)
         g_hOpmHook = ::SetWindowsHookEx(
             WH_CALLWNDPROC,
             OpmMessageHookProc,
@@ -115,10 +120,28 @@ void OpmMessageHook::Start(void (*notifyCallback)()) {
     }
 }
 
+// Снятие хука
 void OpmMessageHook::Stop() {
     if (g_hOpmHook != NULL) {
         ::UnhookWindowsHookEx(g_hOpmHook);
         g_hOpmHook = NULL;
-        g_notifyCallback = nullptr;
+
+        // Освобождаем память кэша окон
+        g_targetWindowsCache.clear();
+        g_ignoredWindowsCache.clear();
     }
+}
+
+// 🚀 РЕАЛИЗАЦИЯ НАШЕГО ВСТРОЕННОГО ПРЯМОГО КОЛЛБЭКА
+void __cdecl GlobalComboHookCallback() {
+    // 1. Извлекаем актуальный нативный вектор ID выбранных на экране объектов
+    const std::vector<::AcDbObjectId>* pNativeIds = ArxBridge::ArxBridgeCore::m_frameSelectedIds;
+
+    // 2. Обновляем пакетный контекст свойств для этих ID
+    if (pNativeIds != nullptr) {
+        ArxBridge::PropertyEngine::PrepareInitialSelectionContext(*pNativeIds);
+    }
+
+    // 3. Синхронно пинаем COM-интерфейс палитры свойств для моментальной перерисовки
+    ArxBridge::BridgePropertyWatcher::getInstance().Refresh();
 }

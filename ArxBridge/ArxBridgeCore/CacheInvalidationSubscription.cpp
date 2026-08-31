@@ -2,9 +2,8 @@
 #include "DocumentCacheManager.h" 
 #include <dbmain.h>
 #include <acdocman.h>
-#include "OpmTriggerState.h"
 #include "OpmMessageHook.h"
-
+#include "BridgePropertyWatcher.h"
 
 namespace ArxBridge {
         
@@ -14,19 +13,16 @@ namespace ArxBridge {
     }
 
     void CacheInvalidationSubscription::OnDocumentToBeDestroyed(AcApDocument* pDoc) {
-        OpmTriggerState::Reset();
+        BridgePropertyWatcher::getInstance().Clear();
 
         if (pDoc && pDoc->database()) {
             // КРИТИЧЕСКИ ВАЖНО: Уничтожаем пакетный кэш закрываемого чертежа для защиты от утечек ОЗУ
             DocumentCacheManager::ClearCache(pDoc->database());
-
         }
     }
     void CacheInvalidationSubscription::OnDocumentActivated(AcApDocument* pDoc)
     {
-        // Пользователь переключился на другую вкладку DWG -> 
-        // принудительно тушим таймер OPM и сбрасываем флаги
-        OpmTriggerState::Reset();
+        BridgePropertyWatcher::getInstance().Clear();
     }
     void CacheInvalidationSubscription::OnObjectModified(const AcDbDatabase* pDb, const AcDbObject* pObj) {
         if (pDb && pObj) {
@@ -34,7 +30,9 @@ namespace ArxBridge {
 
             // СЕРДЦЕ ЛЕНИВОЙ АКТУАЛИЗАЦИИ (Ваш оригинальный проверенный код): 
             // Точечно взводим флаг IsModified = true для этого объекта в пакетном кэше конкретного чертежа.
+
             DocumentCacheManager::InvalidateObject(pModDb, pObj->objectId());     
+
             OpmMessageHook::IsChanged = true;
         }
     }
