@@ -64,7 +64,7 @@ namespace CurveProperties
         /// </summary>
         /// <param name="e"></param>
         /// <param name="o"></param>
-        public override void GetProperties(ADB.Entity e, ArxBridge.SelectedObjectData o)
+        public override void GetProperties(ADB.Entity e, ArxBridge.SelectedObjectData o, Transaction tr)
         {
             if (e is Curve curve && IsAcadCurve(curve))
             {
@@ -125,7 +125,7 @@ namespace CurveProperties
         /// </summary>
         /// <param name="e"></param>
         /// <param name="properties"></param>
-        public override void SetProperties(ADB.Entity e, List<Property> properties)
+        public override void SetProperties(ADB.Entity e, List<Property> properties, Transaction tr)
         {
             foreach (Property property in properties)
             {

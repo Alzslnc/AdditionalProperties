@@ -13,11 +13,15 @@ namespace ArxBridge {
     /// между нативными объектами AutoCAD и управляемым .NET кэшем свойств.
     /// </summary>
     public ref class BridgeManager {
-    private:
+    private:       
         // Хранилище зарегистрированных C# провайдеров
         static System::Collections::Generic::List<SelectedDataClass^>^ m_providers;
 
     public:
+        /// <summary> Предоставляет доступ к зарегистрированным провайдерам для WPF-окна. </summary>
+        static property System::Collections::Generic::IEnumerable<SelectedDataClass^>^ Providers {
+            System::Collections::Generic::IEnumerable<SelectedDataClass^>^ get() { return m_providers; }
+        }
         /// <summary> Инициализация статических компонентов менеджера при старте плагина. </summary>
         static void Initialize();
 
@@ -26,7 +30,11 @@ namespace ArxBridge {
 
         /// <summary> Метод динамической регистрации C#-наследников (плагинов) в нативном слое моста. </summary>
         static void RegisterProvider(System::Object^ providerObj);
-
+        /// <summary>
+        /// Перечитывает настройки из XML и синхронизирует состояние всех свойств в панели AutoCAD OPM.
+        /// Вызывается из WPF-окна настроек после изменения галочек пользователем.
+        /// </summary>
+        static void UpdateProviders();
         /// <summary>
         /// ЕДИНЫЙ ПАКЕТНЫЙ КОНВЕЙЕР СИНХРОНИЗАЦИИ (Запись + Чтение на месте за один проход).
         /// Открывает транзакцию AutoCAD и веерно передает объекты в C#-плагины.

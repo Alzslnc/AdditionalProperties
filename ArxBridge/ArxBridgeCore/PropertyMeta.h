@@ -38,6 +38,11 @@ namespace ArxBridge {
 
         /// <summary> Имя кастомной группы. Используется только в случае, если GroupType == PropertyGroup::Custom. </summary>
         property System::String^ CustomGroupName;
+        /// <summary> Имя DLL-сборки, из которой пришло свойство </summary>
+        property System::String^ AssemblyName;
+
+        /// <summary> Имя класса провайдера внутри этой DLL </summary>
+        property System::String^ ProviderClassName;
 
         /// <summary>
         /// Конструктор для инициализации базового паспорта динамического свойства.
@@ -60,6 +65,8 @@ namespace ArxBridge {
             // По умолчанию относим свойство в стандартную категорию "Общие"
             GroupType = PropertyGroup::General;
             CustomGroupName = nullptr;
+            AssemblyName = nullptr;
+            ProviderClassName = nullptr;
         }
     };
 

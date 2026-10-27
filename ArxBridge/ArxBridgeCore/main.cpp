@@ -3,7 +3,6 @@
 
 #include "ArxBridgeCore.h"
 #include "BridgeManager.h"
-//#include "PropertyEngine.h"
 #include "PropertyReactor.h"
 #include "DocumentCacheManager.h"
 #include "BridgePropertyWatcher.h"

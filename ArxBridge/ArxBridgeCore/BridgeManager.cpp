@@ -1,7 +1,7 @@
 #include "BridgeManager.h"
 #include <msclr/marshal_cppstd.h>
-
 #include "SelectedDataClass.h"
+#include "PropertyConfigurator.h"
 #include "SelectedObjectData.h"
 #include "Property.h" 
 #include "ArxBridgeCore.h"
@@ -32,6 +32,10 @@ namespace ArxBridge {
         SelectedDataClass^ provider = dynamic_cast<SelectedDataClass^>(providerObj);
         if (provider == nullptr || provider->AllProperties == nullptr) return;
 
+        // 🚀 ШАГ 1: Актуализируем флаги IsEnabled и заполняем данные для WPF ДО прохода цикла.
+        // Метод внутри себя определит имя сборки, проверит XML и обновит метаданные провайдера.
+        PropertyConfigurator::UpdatePropertiesFromXml(provider, provider->AllProperties);
+
         if (!m_providers->Contains(provider)) {
             m_providers->Add(provider);
 
@@ -41,6 +45,7 @@ namespace ArxBridge {
             {
                 PropertyMeta^ meta = provider->AllProperties[key];
 
+                // 🚀 ШАГ 2: Сюда гарантированно приходит уже актуальный флаг IsEnabled из XML-конфига!
                 if (meta != nullptr && meta->IsEnabled)
                 {
                     List<System::String^>^ nativeClassNames = gcnew List<System::String^>();
@@ -65,15 +70,43 @@ namespace ArxBridge {
 
                     if (nativeClassNames->Count > 0) {
                         ArxBridgeCore::RegisterDynamicPropertyForClasses(
-                            meta->Name,
-                            meta->Description,
-                            meta->PropType,
+                            meta,
                             nativeClassNames
                         );
                     }
                 }
             }
         }
+    }
+
+    void BridgeManager::UpdateProviders() {
+        if (m_providers == nullptr || m_providers->Count == 0) return;
+
+        // Кэш для сборки итогового XML (Key: UniqueId, Value: IsEnabled)
+        // Он нужен, чтобы за один проход сохранить настройки всех плагинов на диск
+        Dictionary<System::String^, bool>^ allSettingsToSave = gcnew Dictionary<System::String^, bool>();
+
+        for each (SelectedDataClass ^ provider in m_providers) {
+            if (provider == nullptr || provider->AllProperties == nullptr) continue;
+
+            for each (PropertyMeta ^ meta in provider->AllProperties->Values) {
+                if (meta == nullptr || meta->AssemblyName == nullptr || meta->ProviderClassName == nullptr) continue;
+
+                // Собираем уникальный ID для этого свойства
+                System::String^ xmlLookupId = meta->AssemblyName + "|" + meta->ProviderClassName + "|" + meta->Name;
+
+                // Добавляем текущее состояние флага (которое пользователь накликал в WPF) в общую карту для сохранения
+                allSettingsToSave[xmlLookupId] = meta->IsEnabled;
+
+                // 💡 Здесь можно оставить вашу нативную проверку: 
+                // если свойство выключено в UI, но всё еще зарегистрировано в AutoCAD (или наоборот) — 
+                // вызываем ArxBridgeCore::UnregisterDynamicProperty / RegisterDynamicPropertyForClasses.
+                // (Для этого можно в метаданные добавить внутренний флаг bool m_isCurrentlyRegisteredInAcad)
+            }
+        }
+
+        // 🚀 ОДНА СТРОКА: Сбрасываем актуальное состояние из памяти в XML файл
+        PropertyConfigurator::SaveAllPropertiesToXml(allSettingsToSave);
     }
 
     // 🚀 ЕДИНЫЙ ВЫСОКОСКОРОСТНОЙ КОНВЕЙЕР СИНХРОНИЗАЦИИ ДАННЫХ
@@ -121,7 +154,7 @@ namespace ArxBridge {
                     if (isWriteMode && objectData->IsChanged) {
                         for each (SelectedDataClass ^ provider in m_providers) {
                             if (provider != nullptr) {
-                                try { provider->SetProperties(entity, objectData->Properties); }
+                                try { provider->SetProperties(entity, objectData->Properties, tr); }
                                 catch (...) {}
                             }
                         }
@@ -139,7 +172,7 @@ namespace ArxBridge {
                     // 📤 ТАКТ 2. МГНОВЕННОЕ ПЕРЕЧИТЫВАНИЕ (Сбор свежей геометрии в .NET кэш)
                     for each (SelectedDataClass ^ provider in m_providers) {
                         if (provider != nullptr) {
-                            try { provider->GetProperties(entity, objectData); }
+                            try { provider->GetProperties(entity, objectData, tr); }
                             catch (...) {}
                         }
                     }                

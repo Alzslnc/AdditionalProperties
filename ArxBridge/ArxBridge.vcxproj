@@ -237,6 +237,7 @@
     <ClInclude Include="ArxBridgeCore\BridgePropertyWatcher.h" />
     <ClInclude Include="ArxBridgeCore\CacheInvalidationSubscription.h" />
     <ClInclude Include="ArxBridgeCore\OpmMessageHook.h" />
+    <ClInclude Include="ArxBridgeCore\PropertyConfigurator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ArxBridgeCore\BridgeManager.cpp" />
@@ -256,6 +257,7 @@
     <ClCompile Include="ArxBridgeCore\BridgePropertyWatcher.cpp" />
     <ClCompile Include="ArxBridgeCore\CacheInvalidationSubscription.cpp" />
     <ClCompile Include="ArxBridgeCore\OpmMessageHook.cpp" />
+    <ClCompile Include="ArxBridgeCore\PropertyConfigurator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="accoremgd">

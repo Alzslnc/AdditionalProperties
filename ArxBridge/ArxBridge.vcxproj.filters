@@ -81,17 +81,11 @@
     <ClCompile Include="ArxBridgeCore\CacheInvalidationSubscription.cpp">
       <Filter>Core\Engine\Reactor</Filter>
     </ClCompile>
-    <ClCompile Include="ArxBridgeCore\OpmPaletteSubscription.cpp">
-      <Filter>Core\Engine\Reactor</Filter>
-    </ClCompile>
-    <ClCompile Include="ArxBridgeCore\OpmManagedBridge.cpp">
-      <Filter>Core\Engine\Reactor</Filter>
-    </ClCompile>
-    <ClCompile Include="ArxBridgeCore\OpmTriggerState.cpp">
-      <Filter>Core\Engine\Reactor</Filter>
-    </ClCompile>
     <ClCompile Include="ArxBridgeCore\OpmMessageHook.cpp">
       <Filter>Core\Engine\Reactor</Filter>
+    </ClCompile>
+    <ClCompile Include="ArxBridgeCore\PropertyConfigurator.cpp">
+      <Filter>Core\Infrastructure</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -146,14 +140,11 @@
     <ClInclude Include="ArxBridgeCore\CacheInvalidationSubscription.h">
       <Filter>Core\Engine\Reactor</Filter>
     </ClInclude>
-    <ClInclude Include="ArxBridgeCore\OpmPaletteSubscription.h">
-      <Filter>Core\Engine\Reactor</Filter>
-    </ClInclude>
-    <ClInclude Include="ArxBridgeCore\OpmTriggerState.h">
-      <Filter>Core\Engine\Reactor</Filter>
-    </ClInclude>
     <ClInclude Include="ArxBridgeCore\OpmMessageHook.h">
       <Filter>Core\Engine\Reactor</Filter>
+    </ClInclude>
+    <ClInclude Include="ArxBridgeCore\PropertyConfigurator.h">
+      <Filter>Core\Infrastructure</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

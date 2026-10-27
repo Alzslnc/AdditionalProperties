@@ -45,14 +45,16 @@ namespace ArxBridge {
         /// </summary>
         virtual void GetProperties(
             Autodesk::AutoCAD::DatabaseServices::Entity^ e,
-            ArxBridge::SelectedObjectData^ data) abstract;
+            ArxBridge::SelectedObjectData^ data,
+            Autodesk::AutoCAD::DatabaseServices::Transaction^ transaction) abstract;
 
         /// <summary>
         /// Поштучное изменение параметров.
         /// </summary>
         virtual void SetProperties(
             Autodesk::AutoCAD::DatabaseServices::Entity^ e,
-            System::Collections::Generic::List<ArxBridge::Property^>^ properties) abstract;
+            System::Collections::Generic::List<ArxBridge::Property^>^ properties,
+            Autodesk::AutoCAD::DatabaseServices::Transaction^ transaction) abstract;
 
         virtual bool Action(ArxBridge::Property^ property)
         {
