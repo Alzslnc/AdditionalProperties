@@ -7,23 +7,20 @@
 
   <Components Description="ACad 2021-2024" Platform="ACAD | Civil3D">
     <RuntimeRequirements OS="Win64" SeriesMax="24.3"/>
-    <ComponentEntry
-      ModuleName="./Contents/R24/ArxBridge.dll"
-    />
+    <ComponentEntry ModuleName="./Contents/R24/ArxBridge.dll" />
+    <ComponentEntry ModuleName="./Contents/R24/ArxBridgeUI.dll" />
   </Components>
 
   <Components Description="ACad 2025-2026" Platform="ACAD | Civil3D">
     <RuntimeRequirements OS="Win64" SeriesMin="25.0" SeriesMax="25.1"/>
-    <ComponentEntry
-      ModuleName="./Contents/R25/ArxBridge.dll"
-    />
+    <ComponentEntry ModuleName="./Contents/R25/ArxBridge.dll" />
+    <ComponentEntry ModuleName="./Contents/R25/ArxBridgeUI.dll" />
   </Components>
 
   <Components Description="ACad 2027+" Platform="ACAD | Civil3D">
     <RuntimeRequirements OS="Win64" SeriesMin="26.0"/>
-    <ComponentEntry
-      ModuleName="./Contents/R26/ArxBridge.dll"
-    />
+    <ComponentEntry ModuleName="./Contents/R26/ArxBridge.dll" />
+    <ComponentEntry ModuleName="./Contents/R26/ArxBridgeUI.dll" />
   </Components>
 
 </ApplicationPackage>

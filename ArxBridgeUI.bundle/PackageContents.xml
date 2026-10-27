@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ApplicationPackage SchemaVersion="1.0" AppVersion="0.0.1"
+                    ProductCode="{2c33bae8-042e-4d56-8155-4d81787780f8}"
+                    UpgradeCode="{ddad3f4d-7b48-49a2-969b-2688ccc8f84b}"
+                    Name="ArxBridgeUI">
+
+  <CompanyDetails Name="zzz" Email="alzslnc@gmail.com"/>
+
+  <Components Description="ACad 2021-2024" Platform="ACAD">
+    <RuntimeRequirements OS="Win64" SeriesMax="24.3"/>
+    <ComponentEntry
+      ModuleName="./Contents/ArxBridgeUI_v2021.dll"
+    />
+  </Components>
+
+  <Components Description="ACad 2025-2026" Platform="ACAD">
+    <RuntimeRequirements OS="Win64" SeriesMin="25.0" SeriesMax="25.9"/>
+    <ComponentEntry
+      ModuleName="./Contents/ArxBridgeUI_v2025.dll"
+    />
+  </Components>
+
+  <Components Description="ACad 2027+" Platform="ACAD">
+    <RuntimeRequirements OS="Win64" SeriesMin="26.0"/>
+    <ComponentEntry
+      ModuleName="./Contents/ArxBridgeUI_v2027.dll"
+    />
+  </Components>
+
+</ApplicationPackage>

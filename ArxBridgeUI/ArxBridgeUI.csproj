@@ -1,0 +1,180 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <ProjectGuid>{2c33bae8-042e-4d56-8155-4d81787780f8}</ProjectGuid>
+    <UpgradeCode>{ddad3f4d-7b48-49a2-969b-2688ccc8f84b}</UpgradeCode>
+    <AppVersion>0.0.1</AppVersion>
+    <TargetProgram>ACAD</TargetProgram>
+    <EMail>alzslnc@gmail.com</EMail>  
+  </PropertyGroup>
+
+  <!-- Константы компиляции -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net472'">
+    <DefineConstants>$(DefineConstants);ACAD_2021</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <DefineConstants>$(DefineConstants);ACAD_2025</DefineConstants>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+    <DefineConstants>$(DefineConstants);ACAD_2027</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFrameworks>net472;net8.0-windows;net10.0-windows</TargetFrameworks>
+    <Nullable>disable</Nullable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <RootNamespace>ArxBridgeUI</RootNamespace>
+    <PackageId>$(RootNamespace)</PackageId>
+    <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
+    <GenerateTargetFrameworkAttribute Condition="'$(TargetFramework)' == 'net472'">false</GenerateTargetFrameworkAttribute>
+    <SupportedOSPlatformVersion Condition="'$(TargetFramework)' == 'net472'"></SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <!-- Имена выходных файлов в зависимости от платформы -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug' AND '$(TargetFramework)' == 'net472'">
+    <AssemblyName>$(MSBuildProjectName)v2021</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug' AND '$(TargetFramework)' == 'net8.0-windows'">
+    <AssemblyName>$(MSBuildProjectName)v2025</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug' AND '$(TargetFramework)' == 'net10.0-windows'">
+    <AssemblyName>$(MSBuildProjectName)v2027</AssemblyName>
+  </PropertyGroup>
+
+  <!-- Пути сборки для всех платформ -->
+
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' AND '$(TargetFramework)' == 'net472'">
+		<OutputPath>$(SolutionDir)ArxBridge.bundle\contents\R24\</OutputPath>
+	</PropertyGroup>
+	
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' AND '$(TargetFramework)' == 'net8.0-windows'">
+		<OutputPath>$(SolutionDir)ArxBridge.bundle\contents\R25\</OutputPath>
+	</PropertyGroup>
+	
+	<PropertyGroup Condition="'$(Configuration)' == 'Release' AND '$(TargetFramework)' == 'net10.0-windows'">
+		<OutputPath>$(SolutionDir)ArxBridge.bundle\contents\R26\</OutputPath>
+	</PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+	 <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+     <IntermediateOutputPath>obj\Release\$(TargetFramework)\</IntermediateOutputPath>
+  </PropertyGroup>
+	
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+     <OutputPath>$(SolutionDir)bin\Debug\</OutputPath>
+     <!-- Рекомендуется поставить true для Debug, чтобы бинарники не перезаписывали друг друга, -->
+     <!-- но если архитектурно нужно в одну папку — оставляем false -->
+     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+     <IntermediateOutputPath>obj\Debug\$(TargetFramework)\</IntermediateOutputPath>
+  </PropertyGroup>
+
+  <!-- Пакет поддержки сборки .NET Framework через SDK -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Base\.keep" />
+  </ItemGroup>
+
+  <!-- Общие связанные файлы кода -->
+ <ItemGroup>
+  <!-- 1. Окно прогресса (Строго прописываем Base\UI\ для обоих файлов) -->
+  <Page Include="..\..\BaseFunction\UI\ProgressWindow.xaml">
+    <Link>Base\UI\ProgressWindow.xaml</Link>
+    <Generator>MSBuild:Compile</Generator>
+    <SubType>Designer</SubType>
+  </Page>
+  <Compile Include="..\..\BaseFunction\UI\ProgressWindow.xaml.cs">
+    <Link>Base\UI\ProgressWindow.xaml.cs</Link>
+    <!-- Важно: в старом cs3proj зависимость должна указывать имя файла БЕЗ путей, так как они лежат в одной папке Link -->
+    <DependentUpon>ProgressWindow.xaml</DependentUpon>
+  </Compile>
+
+  <!-- 2. Окно ввода InputBox (Также строго прописываем Base\UI\) -->
+  <Page Include="..\..\BaseFunction\UI\InputBox.xaml">
+    <Link>Base\UI\InputBox.xaml</Link>
+    <Generator>MSBuild:Compile</Generator>
+    <SubType>Designer</SubType>
+  </Page>
+  <Compile Include="..\..\BaseFunction\UI\InputBox.xaml.cs">
+    <Link>Base\UI\InputBox.xaml.cs</Link>
+    <DependentUpon>InputBox.xaml</DependentUpon>
+  </Compile>
+
+  <!-- 3. Общая маска с обязательным исключением обоих файлов .xaml.cs и папки CivilServices -->
+  <Compile Include="..\..\BaseFunction\**\*.cs" Exclude="..\..\BaseFunction\UI\ProgressWindow.xaml.cs;..\..\BaseFunction\UI\InputBox.xaml.cs;..\..\BaseFunction\CivilServices\*.cs">
+    <LinkBase>Base</LinkBase>
+  </Compile>
+
+  <!-- 4. Подключение CivilServices только для Civil3D (без подпапок) -->
+  <Compile Condition="$(TargetProgram.Contains('Civil3D'))" Include="..\..\BaseFunction\CivilServices\*.cs">
+    <LinkBase>Base\CivilServices</LinkBase>
+  </Compile>
+</ItemGroup>
+
+  <!-- Зависимости: 2021 версия -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net472'"> 
+    <Reference Include="System.Net.Http" />
+    <PackageReference Include="Autocad.MPolygon.2019" Version="1.0.0" ExcludeAssets="runtime" />
+    <PackageReference Condition="!$(TargetProgram.Contains('Civil3D'))" Include="AutoCAD.NET" Version="24.0.0" ExcludeAssets="runtime" />
+    <PackageReference Condition="!$(TargetProgram.Contains('Civil3D'))" Include="AutoCAD.NET.Model" Version="24.0.0" ExcludeAssets="runtime" />
+    <PackageReference Condition="!$(TargetProgram.Contains('Civil3D'))" Include="AutoCAD.NET.Core" Version="24.0.0" ExcludeAssets="runtime" />
+    <PackageReference Condition="$(TargetProgram.Contains('Civil3D'))" Include="Speckle.Civil3D.API" Version="2021.0.0.3" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+  <!-- Зависимости: 2025 версия -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'"> 
+    <PackageReference Include="Digi-Ants.AutoCAD.API.MPolygon" Version="2025.0.0" ExcludeAssets="runtime" />
+    <PackageReference Condition="!$(TargetProgram.Contains('Civil3D'))" Include="AutoCAD.NET" Version="25.0.1" ExcludeAssets="runtime" /> 
+    <PackageReference Condition="$(TargetProgram.Contains('Civil3D'))" Include="Speckle.Civil3D.API" Version="2025.0.0" ExcludeAssets="runtime" />  
+  </ItemGroup>
+
+   <!-- Зависимости: 2027 версия -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'"> 
+    <PackageReference Include="Digi-Ants.AutoCAD.API.MPolygon" Version="2027.0.0" ExcludeAssets="runtime" />
+    <PackageReference Condition="!$(TargetProgram.Contains('Civil3D'))" Include="AutoCAD.NET" Version="26.0.0" ExcludeAssets="runtime" />
+    <PackageReference Condition="$(TargetProgram.Contains('Civil3D'))" Include="Speckle.Civil3D.API" Version="2027.0.1" ExcludeAssets="runtime" />
+  </ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net472'">
+		<Reference Include="ArxBridge">
+			<HintPath>..\ArxBridge.bundle\contents\R24\ArxBridge.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+		<Reference Include="ArxBridge">
+			<HintPath>..\ArxBridge.bundle\contents\R25\ArxBridge.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(TargetFramework)' == 'net10.0-windows'">
+		<Reference Include="ArxBridge">
+			<HintPath>..\ArxBridge.bundle\contents\R26\ArxBridge.dll</HintPath>
+		</Reference>
+	</ItemGroup>
+
+  <!-- Очистка мусора AutoCAD из выходной папки (только для net472) -->
+  <Target Name="DeleteAutoCADFilesAfterBuild" AfterTargets="Build" Condition="'$(TargetFramework)' == 'net472'">
+    <ItemGroup>
+      <FilesToDelete Include="$(OutputPath)acmgd.dll" />
+      <FilesToDelete Include="$(OutputPath)acdbmgd.dll" />
+      <FilesToDelete Include="$(OutputPath)accoremgd.dll" />
+      <FilesToDelete Include="$(OutputPath)Accui.dll" />
+      <FilesToDelete Include="$(OutputPath)acdbmgdbrep.dll" />
+      <FilesToDelete Include="$(OutputPath)AdWindows.dll" />
+      <FilesToDelete Include="$(OutputPath)AecBaseMgd.dll" />
+      <FilesToDelete Include="$(OutputPath)AecDbMgd.dll" />
+      <FilesToDelete Include="$(OutputPath)Autocad.MPolygon.2019.dll" />
+    </ItemGroup>
+    <Delete Files="@(FilesToDelete)" TreatErrorsAsWarnings="true" />
+  </Target>
+
+</Project>

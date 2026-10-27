@@ -1,0 +1,52 @@
+﻿<Window x:Class="ArxBridgeUI.UI.SettingsView"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:ArxBridgeUI.UI"
+        mc:Ignorable="d"
+        Title="SettingsView" Height="450" Width="800">
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Дерево модулей и их свойств -->
+        <TreeView Grid.Row="0" ItemsSource="{Binding UiProviders}" BorderBrush="#CCCCCC">
+            <TreeView.Resources>
+
+                <!-- Уровень 1: Модуль (SelectedDataClass) -->
+                <HierarchicalDataTemplate DataType="{x:Type local:ProviderUiWrapper}" 
+                                          ItemsSource="{Binding Properties}">
+                    <StackPanel Orientation="Horizontal" Margin="2,4">
+                        <!-- Иконка папки или просто жирный текст для модуля -->
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </HierarchicalDataTemplate>
+
+                <!-- Уровень 2: Свойство (PropertyMeta) с галочкой видимости -->
+                <DataTemplate DataType="{x:Type local:PropertyUiWrapper}">
+                    <StackPanel Orientation="Horizontal" Margin="2,2">
+                        <CheckBox IsChecked="{Binding IsEnabled, Mode=TwoWay}" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding PropertyName}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </DataTemplate>
+
+            </TreeView.Resources>
+
+            <!-- Автоматически разворачиваем дерево при загрузке -->
+            <TreeView.ItemContainerStyle>
+                <Style TargetType="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="True"/>
+                </Style>
+            </TreeView.ItemContainerStyle>
+        </TreeView>
+
+        <!-- Панель кнопок -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Сохранить" Command="{Binding SaveCommand}" Width="90" Height="24" Margin="4,0"/>
+            <Button Content="Отмена" Command="{Binding CloseCommand}" Width="90" Height="24" Margin="4,0"/>
+        </StackPanel>
+    </Grid>
+</Window>

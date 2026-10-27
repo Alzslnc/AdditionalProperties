@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "ArxBridgeUI": {
+      "commandName": "Project"
+    },
+    "AutoCAD 2025": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Program Files\\Autodesk\\AutoCAD 2026\\acad.exe",
+      "commandLineArgs": "/ld \"C:\\Program Files\\Autodesk\\AutoCAD 2026\\AecBase.dbx\" /p \"<<C3D_Metric>>\" /product C3D /language ru-RU",
+      "framework": "net8.0-windows"
+    }
+  }
+}

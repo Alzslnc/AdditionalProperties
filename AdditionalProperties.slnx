@@ -20,6 +20,10 @@
       <BuildType Solution="Release_2021|*" Project="Release" />
       <BuildType Solution="Release_2025|*" Project="Release" />
       <BuildType Solution="Release_2027|*" Project="Release" />
+      <Build Solution="Release_2021|Any CPU" Project="false" />
+      <Build Solution="Release_2025|Any CPU" Project="false" />
+      <Build Solution="Release_2027|Any CPU" Project="false" />
+      <Build Solution="Release|Any CPU" Project="false" />
     </Project>
   </Folder>
   <Project Path="ArxBridge/ArxBridge.vcxproj" Id="a3b2c1d0-4e5f-6a7b-8c9d-0e1f2a3b4c5d">
@@ -29,5 +33,16 @@
     <Platform Solution="Release_2021|x86" Project="x64" />
     <Platform Solution="Release_2025|x86" Project="x64" />
     <Platform Solution="Release_2027|x86" Project="x64" />
+    <Build Solution="Release|Any CPU" Project="false" />
+  </Project>
+  <Project Path="ArxBridgeUI/ArxBridgeUI.csproj" Id="2c33bae8-042e-4d56-8155-4d81787780f8">
+    <BuildType Solution="Debug_2021|*" Project="Debug" />
+    <BuildType Solution="Debug_2025|*" Project="Debug" />
+    <BuildType Solution="Debug_2027|*" Project="Debug" />
+    <BuildType Solution="Release_2021|*" Project="Release" />
+    <BuildType Solution="Release_2025|*" Project="Release" />
+    <BuildType Solution="Release_2027|*" Project="Release" />
+    <Build Solution="Release_2021|Any CPU" Project="false" />
+    <Build Solution="Release_2027|Any CPU" Project="false" />
   </Project>
 </Solution>
